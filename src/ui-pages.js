@@ -1,0 +1,24 @@
+(() => {
+ const page=location.pathname.split('/').pop().replace('.html','');document.body.dataset.uiPage=page;
+ const titles=[['report','JQL-отчёты'],['metrics','Метрики'],['roadmap','Роадмэп'],['tools','Инструменты'],['settings','Настройки'],['help','Справка']];
+ if(page!=='popup'){
+  const nav=document.createElement('nav');nav.className='ui-nav';nav.setAttribute('aria-label','Разделы Board Plus');for(const [id,title] of titles){const a=document.querySelector('.top .actions #'+id)||document.createElement('a');if(a.tagName==='A')a.href=id+'.html';a.textContent=title;if(id===page)a.setAttribute('aria-current','page');nav.append(a);}document.querySelector('.top')?.after(nav);
+  const main=document.querySelector('main');if(main){main.id ||= 'ui-main';const skip=document.createElement('a');skip.href='#'+main.id;skip.className='ui-skip';skip.textContent='Перейти к содержимому';document.body.prepend(skip);main.tabIndex=-1;}
+ }
+ if(page==='popup'){
+  const paths={report:'M4 3h16v18H4z M8 8h8 M8 12h8 M8 16h5',metrics:'M4 20V12 M12 20V4 M20 20V8',roadmap:'M3 5h10v4H3z M8 11h13v4H8z M5 17h10v4H5z',tools:'M4 5h16 M4 12h16 M4 19h16 M8 3v4 M16 10v4 M10 17v4','open-settings':'M12 8a4 4 0 1 0 0 8 4 4 0 0 0 0-8 M12 2v3 M12 19v3 M2 12h3 M19 12h3 M5 5l2 2 M17 17l2 2 M5 19l2-2 M17 7l2-2',onboarding:'M4 12l5 5L20 6',help:'M9 8a3 3 0 1 1 5 2c-2 1-2 2-2 4 M12 18h.01'};
+  for(const [id,path] of Object.entries(paths)){const button=document.getElementById(id);if(!button)continue;const svg=document.createElementNS('http://www.w3.org/2000/svg','svg');svg.setAttribute('viewBox','0 0 24 24');svg.setAttribute('aria-hidden','true');svg.setAttribute('fill','none');svg.setAttribute('stroke','currentColor');svg.setAttribute('stroke-width','1.7');svg.setAttribute('stroke-linecap','round');svg.setAttribute('stroke-linejoin','round');const p=document.createElementNS(svg.namespaceURI,'path');p.setAttribute('d',path);svg.append(p);button.prepend(svg);}
+ }
+ if(page==='settings'){
+  const cards=[...document.querySelectorAll('.settings-card')],nav=document.querySelector('.settings-nav');
+  const label=document.createElement('label');label.className='ui-setting-search';label.textContent='Найти настройку';const input=document.createElement('input');input.type='search';input.placeholder='Например: спринт, Team, заметки';input.setAttribute('aria-label','Найти настройку');label.append(input);nav?.after(label);
+  const count=document.createElement('p');count.className='ui-setting-count';count.role='status';label.after(count);
+  input.addEventListener('input',()=>{const q=input.value.trim().toLocaleLowerCase();for(const card of cards)card.hidden=!!q&&!card.textContent.toLocaleLowerCase().includes(q);count.textContent=q?'Разделов найдено: '+cards.filter(c=>!c.hidden).length:'';});
+  nav?.addEventListener('click',e=>{if(e.target.closest('a')){input.value='';input.dispatchEvent(new Event('input'));}});
+ }
+ const region=document.createElement('div');region.className='ui-toast-region';region.setAttribute('aria-live','polite');document.body.append(region);let timeout,lastToast='';
+ function toast(text,kind){if(text===lastToast)return;lastToast=text;clearTimeout(timeout);region.replaceChildren();const box=document.createElement('div');box.className='ui-toast';box.dataset.kind=kind;const message=document.createElement('span');message.textContent=text;const close=document.createElement('button');close.type='button';close.textContent='×';close.setAttribute('aria-label','Закрыть уведомление');close.onclick=()=>{region.replaceChildren();lastToast='';};box.append(message,close);region.append(box);if(kind==='success')timeout=setTimeout(()=>{region.replaceChildren();lastToast='';},6000);}
+ const seen=new WeakMap();let pending;
+ function scan(){for(const node of document.querySelectorAll('[role=status],#ai-status,#error,#form-error')){if(node.closest('.ui-toast-region')||node.hidden||!node.getClientRects().length)continue;const text=node.textContent.trim();if(seen.get(node)===text)continue;seen.set(node,text);node.dataset.uiLoading=String(/^(Загрузка|Модель анализирует|Подготовка снимка)/i.test(text));if(!text||text.length>600)continue;const error=/(HTTP \d|не удалось|ошибка|недоступ|отклон|не предоставлен)/i.test(text);const success=/^(Сохранено|Настройки сохранены|Анализ завершён|Заметка удалена|Снимок сохранён)/i.test(text);if(error||success)toast(text,error?'error':'success');}}
+ new MutationObserver(()=>{clearTimeout(pending);pending=setTimeout(scan,100);}).observe(document.body,{childList:true,subtree:true,characterData:true});scan();
+})();

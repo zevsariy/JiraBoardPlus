@@ -1,0 +1,14 @@
+node_modules/
+test-output/
+playwright-report/
+coverage/
+dist/
+*.zip
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.log
+.DS_Store
+Thumbs.db

@@ -1,0 +1,34 @@
+{
+  "manifest_version": 3,
+  "name": "Jira Board Plus",
+  "version": "0.20.4",
+  "description": "Shared Team, JQL-отчёты и метрики спринтов для Jira Server.",
+  "permissions": [
+    "storage",
+    "unlimitedStorage",
+    "alarms",
+    "notifications",
+    "scripting"
+  ],
+  "background": {
+    "service_worker": "src/background.js"
+  },
+  "action": {
+    "default_title": "Jira Board Plus",
+    "default_icon": "icons/report.png",
+    "default_popup": "popup.html"
+  },
+  "icons": {
+    "128": "icons/report.png"
+  },
+  "optional_host_permissions": [
+    "https://*/*",
+    "http://localhost/*",
+    "http://127.0.0.1/*",
+    "http://[::1]/*"
+  ],
+  "options_ui": {
+    "page": "settings.html",
+    "open_in_tab": true
+  }
+}

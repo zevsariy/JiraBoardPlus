@@ -1,0 +1,5 @@
+nav{margin-bottom:20px}nav button[aria-pressed=true]{background:#303bea;color:white;border-color:#303bea}.settings form{display:block}.actions{align-items:end}td input[type=checkbox]{width:18px;height:18px}td input:not([type=checkbox]){min-width:130px}th,td{min-width:90px}#message{color:#243755;background:#eef0ff}#message.error{color:#9f261a;background:#fff0ed}#rules td{vertical-align:middle}#profilePreview{white-space:pre-wrap}button.primary{background:#303bea}
+
+#refineForm{margin-top:16px}.metric-selectors>label{margin-bottom:0}#scope-status:empty{display:none}
+
+.check-options{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:4px 16px}.check-options label{margin:6px 0}#check-count{margin-bottom:0}#type-rules{margin:16px 0}#resultView{max-width:360px}
