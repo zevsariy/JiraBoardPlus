@@ -82,3 +82,11 @@ test('build requires configured status and a nonempty exact field; ambiguity is 
  assert.equal(B.hasBuild({fields:{status:{name:'Open'},customfield_55:'build'}},'customfield_55'),false);
  assert.throws(()=>B.hasBuild({fields:{status:{name:'Resolved'}}},'customfield_55'));
 });
+
+test('small positive status durations remain distinct from zero in all units',()=>{
+ for(const unit of ['hours','days','weeks']) {
+  assert.match(B.formatHours(1/3600,unit),/^< 0,01 /);
+  assert.match(B.formatHours(0,unit),/^0 /);
+ }
+ assert.equal(B.formatHours(7/60,'days'),'< 0,01 д');
+});

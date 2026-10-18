@@ -105,7 +105,7 @@ globalThis.JbpBoard = (() => {
     if(hours==null||!Number.isFinite(hours)||hours<0)return '—';
     const divisor={hours:1,days:24,weeks:168}[unit];
     if(!divisor)throw new Error('Неизвестная единица времени.');
-    return `${(hours/divisor).toLocaleString('ru-RU',{maximumFractionDigits:2})} ${{hours:'ч',days:'д',weeks:'нед'}[unit]}`;
+    return `${hours>0&&hours/divisor<0.005?'< 0,01':(hours/divisor).toLocaleString('ru-RU',{maximumFractionDigits:2})} ${{hours:'ч',days:'д',weeks:'нед'}[unit]}`;
   }
   function jiraTimes(issue,mode='last',now=Date.now()){
     const h=issue.changelog,f=issue.fields,created=Date.parse(f.created);

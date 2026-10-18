@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.20.8 — 2026-10-18
+
+- Avoid displaying a hardcoded Timepiece version in status duration tooltips.
+- Display small positive status durations as < 0.01 in the selected unit instead of rounding them to zero.
+- Verified Timepiece 6.5.15.87 current-visit data on the live test board.
+
 ## 0.20.7 — 2026-10-18
 
 - Calculate Jira status age on cards using the response Date header, avoiding temporary invalid-history errors when the Jira clock is ahead of the browser.

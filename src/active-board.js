@@ -130,7 +130,7 @@
           if(p.source==='timepiece'){const params=new URLSearchParams({issueKey:key,columnsBy:'statusDuration',multiVisitBehavior:p.timeMode,calendar:p.calendar,dayLength:'24HourDays',viewFormat:'hours',outputType:'json'});const report=await get(`tis/report/1.0/api/issue?${params}`,signal);entry.statuses=B.timepieceStatuses(report,key,issue.fields.status?.id,p.timeMode,p.timeUnit);}
           else entry.statuses=B.jiraTimes(issue,p.timeMode,responseTimes.get(issue));
           entry.hours=entry.statuses.find(v=>v.current)?.hours;
-          entry.ageTitle=`${p.source==='timepiece'?'Timepiece 5.1':'Jira'} · ${issue.fields.status?.name}\n${p.timeMode==='last'?'Текущий визит (для других статусов — последний)':'Сумма всех визитов в каждый статус'} · календарь ${p.source==='timepiece'?p.calendar:'24×7'}\nДень = 24 ч, неделя = 168 ч. Данные на ${new Date(entry.at).toLocaleTimeString()}.`;
+          entry.ageTitle=`${p.source==='timepiece'?'Timepiece':'Jira'} · ${issue.fields.status?.name}\n${p.timeMode==='last'?'Текущий визит (для других статусов — последний)':'Сумма всех визитов в каждый статус'} · календарь ${p.source==='timepiece'?p.calendar:'24×7'}\nДень = 24 ч, неделя = 168 ч. Данные на ${new Date(entry.at).toLocaleTimeString()}.`;
         }catch(e){if(signal.aborted)throw e;entry.ageError=e.message;}}
         nextRows.set(key,entry);
       }catch(e){if(!signal.aborted)nextRows.set(key,{...rows.get(key),at:Date.now(),config:signature,error:e.message,ageError:e.message});}}}));
