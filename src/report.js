@@ -1,6 +1,6 @@
 globalThis.JbpReportsMount=function(document,options={}){
   const R = globalThis.JbpReports, $ = id => document.getElementById(id);
-  let disposed=false,state, editingId = null, columns = [], fields = { ...R.FIELDS }, refreshTimer;
+  let disposed=false,state, defaultTeamField='', editingId = null, columns = [], fields = { ...R.FIELDS }, refreshTimer;
   async function send(type, data = {}) {
     const result = await chrome.runtime.sendMessage(options.embedded?{type:'embeddedReport',command:{type,...data}}:{type,...data});
     if (!result?.ok) throw new Error(result?.error || 'Фоновая служба недоступна. Перезагрузите расширение.');
@@ -71,7 +71,7 @@ globalThis.JbpReportsMount=function(document,options={}){
     $('field-list').replaceChildren(); for (const [id, name] of Object.entries(fields)) { const option = node('option'); option.value = id; option.label = name; $('field-list').append(option); }
   }
   function edit(query) {
-    editingId = query?.id || null; columns = [...(query?.columns || R.DEFAULT_COLUMNS)];
+    editingId = query?.id || null; columns = [...(query?.columns || R.defaultColumns(defaultTeamField))];
     $('editor-title').textContent = query ? 'Настройка запроса' : 'Новый запрос';
     $('name').value = query?.name || ''; $('jql').value = query?.jql || ''; $('minutes').value = query?.minutes || 60;
     $('notify').value = query?.notify || 'new'; $('enabled').checked = query?.enabled ?? true;
@@ -103,7 +103,7 @@ globalThis.JbpReportsMount=function(document,options={}){
   };
   $('dismiss-message').onclick=()=>error('');
   $('run-all').onclick = () => safe(async () => { state = await send('run'); render(); });
-  async function refresh() { state = await send('get'); render(); }
+  async function refresh() { state = await send('get'); defaultTeamField=state.defaultTeamField||''; render(); }
   const changed=(changes,area)=>{if(!disposed&&area==='local'&&changes.jbpReportsV1){clearTimeout(refreshTimer);refreshTimer=setTimeout(()=>safe(refresh),150);}};chrome.storage.onChanged.addListener(changed);
   const notified=m=>{if(m.type==='embeddedReportChanged')changed({jbpReportsV1:true},'local');};if(options.embedded)chrome.runtime.onMessage.addListener(notified);
   safe(async () => { await refresh(); if (!options.embedded&&location.hash) document.getElementById(decodeURIComponent(location.hash.slice(1)))?.scrollIntoView(); });

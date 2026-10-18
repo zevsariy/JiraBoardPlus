@@ -1,8 +1,9 @@
 /* Shared pure helpers, usable in the worker, report page, and offline tests. */
 globalThis.JbpReports = (() => {
   const ORIGIN = '';
-  const DEFAULT_COLUMNS = ['summary', 'status', 'assignee', 'customfield_10200'];
-  const FIELDS = { summary: 'Название', status: 'Статус', issuetype: 'Тип', assignee: 'Исполнитель', reporter: 'Автор', priority: 'Приоритет', project: 'Проект', created: 'Создано', updated: 'Обновлено', duedate: 'Срок', labels: 'Метки', components: 'Компоненты', fixVersions: 'Fix version', customfield_10200: 'Team' };
+  const DEFAULT_COLUMNS = ['summary', 'status', 'assignee'];
+  const FIELDS = { summary: 'Название', status: 'Статус', issuetype: 'Тип', assignee: 'Исполнитель', reporter: 'Автор', priority: 'Приоритет', project: 'Проект', created: 'Создано', updated: 'Обновлено', duedate: 'Срок', labels: 'Метки', components: 'Компоненты', fixVersions: 'Fix version' };
+  function defaultColumns(teamField) { return [...DEFAULT_COLUMNS, ...(/^customfield_\d+$/.test(String(teamField||'')) ? [teamField] : [])]; }
   function validate(input) {
     const name = String(input.name || '').trim(), jql = String(input.jql || '').trim();
     if (!name || name.length > 120) throw new Error('Название: от 1 до 120 символов.');
@@ -56,5 +57,5 @@ globalThis.JbpReports = (() => {
     if (!data.issues.length && startAt < data.total) throw new Error('Jira вернула неполную выдачу. Предыдущие результаты сохранены.');
     return data;
   }
-  return { ORIGIN, FIELDS, DEFAULT_COLUMNS, validate, row, diff, shouldNotify, pageCheck };
+  return { ORIGIN, FIELDS, DEFAULT_COLUMNS, defaultColumns, validate, row, diff, shouldNotify, pageCheck };
 })();

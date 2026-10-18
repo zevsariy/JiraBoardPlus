@@ -111,7 +111,7 @@ async function tick() {
 async function command(message) {
   const state = await read();
   switch (message.type) {
-    case 'get': return state;
+    case 'get': return {...state,defaultTeamField:(await chrome.storage.local.get('jbpBoardPrefs')).jbpBoardPrefs?.teamField||''};
     case 'dismissNotice':
       if((state.noticeErrorId||'')===(message.errorId||'')){state.noticeError='';state.noticeErrorId='';}
       break;

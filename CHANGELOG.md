@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.24.4 — 2026-10-18
+
+- Use the explicitly configured Team field in new JQL reports instead of assuming customfield_10200; preserve saved query columns.
+- Remove the incorrect hardcoded Team field name alias.
+- Verify real Jira JQL creation, metadata loading, column order, unchanged rerun and exact Summary change detection. Restore the test issue after verification.
+
+
 ## 0.24.3 — 2026-10-18
 
 - Consolidate embedded workspace migration into one update for joint real-Jira verification.
