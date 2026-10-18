@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.20.9 — 2026-10-18
+
+- Show sprint cycle time and status age with two decimal places; tiny positive durations remain distinct from zero.
+- Keep the percentile explanation consistent with the selected P50/P70/P80/P85.
+- Add browser coverage for minute-scale cycle time and every percentile explanation.
+
 ## 0.20.8 — 2026-10-18
 
 - Avoid displaying a hardcoded Timepiece version in status duration tooltips.
