@@ -27,7 +27,7 @@ const {chromium}=require('playwright'),fs=require('node:fs'),path=require('node:
  await page.locator('.flow-options > summary').click();
  await page.screenshot({path:'test-output/metrics-sections-light.png',fullPage:true,animations:'disabled'});await page.emulateMedia({colorScheme:'dark'});await page.screenshot({path:'test-output/metrics-sections-dark.png',fullPage:true,animations:'disabled'});await page.emulateMedia({colorScheme:'light'});
  await page.locator('.flow-options > summary').click();
- const beforeCharts=calls.length;await page.locator('#flow-percentile').selectOption('70');assert.match(await page.locator('#flow-durations').textContent(),/P70/);assert.match(await page.locator('#flow-graph-scatter').textContent(),/P70/);assert.equal(calls.length,beforeCharts);
+ const beforeCharts=calls.length;await page.locator('#flow-percentile').selectOption('70');assert.match(await page.locator('#flow-durations').textContent(),/P70/);assert.match(await page.locator('.flow-options').textContent(),/P70 означает: не менее 70%/);assert.match(await page.locator('#flow-graph-scatter').textContent(),/P70/);assert.equal(calls.length,beforeCharts);
  await page.locator('#flow-graph-aging [role=button]').first().focus();await page.keyboard.press('Enter');assert.equal(await page.locator('#flow-issues a').count(),1);assert.match(await page.locator('#flow-drill-title').textContent(),/DEMO-1/);
  await page.locator('summary').filter({hasText:/^Графики$/}).click();await page.locator('#flow-chart-weekly').uncheck();assert.equal(await page.locator('#flow-graph-weekly').isHidden(),true);await page.locator('#flow-chart-weekly').check();
  await page.locator('#flow-section-history > summary').click();await page.locator('#flow-section-time > summary').click();

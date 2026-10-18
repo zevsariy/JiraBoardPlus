@@ -1,7 +1,7 @@
 // Local SVG charts. Labels are text nodes; no remote assets or executable model content.
 globalThis.JbpCharts = (() => {
  const colors=['#087e8b','#6574ce','#c47921'],NS='http://www.w3.org/2000/svg';
- const fmt=n=>Number(n).toLocaleString('ru-RU',{maximumFractionDigits:1});
+ const fmt=JbpDashboard.formatNumber;
  const svg=(tag,attrs={},text)=>{const n=document.createElementNS(NS,tag);for(const [k,v]of Object.entries(attrs))n.setAttribute(k,String(v));if(text!=null)n.textContent=text;return n;};
  function frame(target,title,note,width=820,height=320){target.replaceChildren();const h=document.createElement('h4');h.textContent=title;const p=document.createElement('p');p.textContent=note;const wrap=document.createElement('div');wrap.className='chart-scroll';const root=svg('svg',{viewBox:`0 0 ${width} ${height}`,width,height,role:'group','aria-label':title});root.style.minWidth=width+'px';wrap.append(root);target.append(h,p,wrap);return root;}
  function empty(target,title,text='Нет данных для выбранной выборки.'){target.replaceChildren();const h=document.createElement('h4'),p=document.createElement('p');h.textContent=title;p.textContent=text;target.append(h,p);}

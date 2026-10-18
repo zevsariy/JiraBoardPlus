@@ -4,7 +4,7 @@ const {mkdirSync}=require('node:fs');
 const path=require('node:path');
 const root=path.resolve(__dirname,'..');
 mkdirSync(path.join(root,'test-output'),{recursive:true});
-const tests=['browser','active-board-browser','board-regression','parents-browser','notes-browser','report-browser','sprint-browser','metrics-browser','dashboard-browser','tools-browser','roadmap-browser','ai-browser','jira-ui-browser','onboarding-browser','ui-browser','team-settings-browser','extension-smoke'];
+const tests=['browser','active-board-browser','board-regression','parents-browser','notes-browser','report-browser','sprint-browser','metrics-browser','dashboard-browser','tools-browser','roadmap-browser','ai-browser','jira-ui-browser','onboarding-browser','ui-browser','team-settings-browser','embedded-browser','extension-smoke'];
 const failed=[];
 for(const name of tests){
   console.log(`\n[Browser test] ${name}`);

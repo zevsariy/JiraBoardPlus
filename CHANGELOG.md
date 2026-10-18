@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.24.3 — 2026-10-18
+
+- Consolidate embedded workspace migration into one update for joint real-Jira verification.
+- Preserve short nonzero metric durations in cards and charts instead of rounding them to zero.
+- Update percentile explanations when P50/P70/P80/P85 changes.
+- Include embedded workspace regression in the standard browser suite.
+
+
 ## 0.24.2 — 2026-10-18
 
 - Fix Team field discovery in embedded Settings through the existing sender-validated fields bridge.

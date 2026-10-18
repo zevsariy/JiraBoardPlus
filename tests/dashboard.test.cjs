@@ -39,3 +39,5 @@ test('P50/70/80/85 use nearest rank, keep median separate and export chosen spri
  assert.equal(D.aggregate(sample,range,7,99).cycle.percentile,85);
  const out=JbpSprint.exportData({baseUrl:'https://jira.example',board:{},sprint:{},details:{}},sample.map(r=>({...r,category:'completed',flow:{cycleHours:r.cycleHours}})),{},{percentile:80});assert.equal(out.metrics.cycle.percentileHours,8);
 });
+
+test('display preserves short nonzero durations and distinguishes missing data',()=>{assert.equal(D.formatNumber(0.021),'0,02');assert.equal(D.formatNumber(0.001),'<0,01');assert.equal(D.formatNumber(0),'0');assert.equal(D.formatNumber(null),'—');assert.equal(D.formatNumber(NaN),'—');});

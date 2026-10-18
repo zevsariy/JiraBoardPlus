@@ -1,5 +1,6 @@
 globalThis.JbpDashboard = (() => {
  const H=3600000,D=24*H;
+ const formatNumber=n=>n==null||!Number.isFinite(Number(n))?'—':Number(n)>0&&Number(n)<0.01?'<0,01':Number(n).toLocaleString('ru-RU',{maximumFractionDigits:2});
  const names=s=>String(s||'').split(',').map(x=>x.trim().toLowerCase()).filter(Boolean);
  const quantile=(values,p)=>{const a=values.filter(Number.isFinite).sort((a,b)=>a-b);return a.length?a[Math.max(0,Math.ceil(a.length*p)-1)]:null;};
  function period(from,to,now=Date.now()){
@@ -44,5 +45,5 @@ globalThis.JbpDashboard = (() => {
   const recurring=new Map();for(const d of rows)for(const r of d.issues.filter(r=>r.category==='unfinished')){const item=recurring.get(r.key)||{key:r.key,summary:r.summary,sprints:[]};item.sprints.push(d.name);recurring.set(r.key,item);}
   return {sprints:rows,recurring:[...recurring.values()].filter(r=>r.sprints.length>1).sort((a,b)=>b.sprints.length-a.sprints.length)};
  }
- return {H,D,quantile,period,timeline,rows,aggregate,sprintTrend};
+ return {H,D,formatNumber,quantile,period,timeline,rows,aggregate,sprintTrend};
 })();

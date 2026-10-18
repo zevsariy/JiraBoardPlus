@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Jira Board Plus",
-  "version": "0.24.2",
+  "version": "0.24.3",
   "description": "Shared Team, JQL-отчёты и метрики спринтов для Jira Server.",
   "permissions": [
     "storage",
