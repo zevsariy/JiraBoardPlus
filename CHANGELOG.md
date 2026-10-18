@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.24.2 — 2026-10-18
+
+- Fix Team field discovery in embedded Settings through the existing sender-validated fields bridge.
+- Keep the protected connection form disabled after asynchronous loading in embedded mode.
+- Use the common configured Team field for refinement requests and missing-Team checks.
+- Verify real Jira refinement selection (Scrum backlog/future sprint, Kanban column), profile export, notes create/edit and cross-view loading, Team search in Kanban Details, and Timepiece status popup. Full real-server regression remains in progress.
+- Add regressions for installation-specific Team IDs and embedded field loading.
+
 ## 0.24.1 — 2026-10-18
 
 - Keep embedded section navigation visible and route Help/Settings anchor links within Jira.

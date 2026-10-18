@@ -14,7 +14,7 @@
  const trackedEvents={addListener(fn){chrome.storage.onChanged.addListener(fn);removers.push(()=>chrome.storage.onChanged.removeListener(fn));},removeListener:fn=>chrome.storage.onChanged.removeListener(fn)};
  const rpc=async message=>{if(dead)throw Error('Раздел закрыт');const result=await chrome.runtime.sendMessage(message);if(dead)throw Error('Раздел закрыт');return result;};
  const local={get:keys=>send({type:'embeddedRoadmapStore',op:'get',keys}),set:values=>send({type:'embeddedRoadmapStore',op:'set',values}),remove:key=>send({type:'embeddedRoadmapStore',op:'remove',key})};
- const api={...chrome,storage:{local,onChanged:trackedEvents},runtime:{...chrome.runtime,sendMessage:m=>rpc(m.type==='connectionGet'?{type:'embeddedConnection'}:m.type==='tools'?{type:'embeddedTools',command:m}:m.type==='boardPrefsSet'?{type:'embeddedPrefs',prefs:m.prefs}:m)},tabs:{create:({url})=>send({type:'embeddedPage',page:url.split('/').pop()})}};
+ const api={...chrome,storage:{local,onChanged:trackedEvents},runtime:{...chrome.runtime,sendMessage:m=>rpc(m.type==='fields'?{type:'embeddedReport',command:{type:'fields'}}:m.type==='connectionGet'?{type:'embeddedConnection'}:m.type==='tools'?{type:'embeddedTools',command:m}:m.type==='boardPrefsSet'?{type:'embeddedPrefs',prefs:m.prefs}:m)},tabs:{create:({url})=>send({type:'embeddedPage',page:url.split('/').pop()})}};
  const win=new Proxy(window,{get(target,key){if(key==='addEventListener')return(type,fn,opts)=>watch(target,type,fn,opts);const value=Reflect.get(target,key,target);return typeof value==='function'?value.bind(target):value;}});
  let cleanup;if(globalThis.JbpUI)JbpUI.native=true;
  if(section==='metrics'){const store={get:key=>send({type:'embeddedStore',op:'get',key}),set:async values=>{for(const [key,value]of Object.entries(values))await send({type:'embeddedStore',op:'set',key,value});}};cleanup=JbpMetricsMount(scoped,{embedded:true,search:'',store});}
@@ -22,7 +22,7 @@
  else if(section==='roadmap')cleanup=JbpRoadmapMount(scoped,api,win);
  else if(section==='tools')cleanup=JbpToolsMount(scoped,api,win);
  else if(section==='settings'){
-  cleanup=JbpSettingsMount(scoped,api,win);
+  cleanup=JbpSettingsMount(scoped,api,win,{embedded:true});
   const secure=label=>{const b=document.createElement('button');b.type='button';b.textContent=label;b.onclick=()=>send({type:'embeddedPage',page:'settings.html'}).catch(console.warn);return b;};
   const connection=content.querySelector('#connection-form');connection.querySelectorAll('input,button').forEach(n=>n.disabled=true);connection.onsubmit=e=>{e.preventDefault();send({type:'embeddedPage',page:'settings.html'}).catch(console.warn);};connection.append(secure('Изменить подключение в защищённой вкладке'));
   const ai=content.querySelector('#ai-form');ai.replaceChildren(secure('Настроить модель и ключ ИИ в защищённой вкладке'));

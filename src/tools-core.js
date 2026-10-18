@@ -12,7 +12,7 @@ globalThis.JbpTools = (() => {
     if(new Set(normalized.map(t=>t.name.toLowerCase())).size!==normalized.length)throw new Error('Типы не должны повторяться.');
     return {mode,spField:field,types:normalized};
   }
-  function inspect(issues, input, estimateField, epicField) {
+  function inspect(issues, input, estimateField, epicField, teamField='customfield_10200') {
     const config=settings(input);
     return issues.map(issue=>{
       const f=issue.fields||{},type=f.issuetype?.name||'Неизвестный тип';
@@ -20,7 +20,7 @@ globalThis.JbpTools = (() => {
       const problems=[],unknown=[];
       for(const [key,enabled]of Object.entries(rule?.checks||{})){
         if(!enabled)continue;
-        const field={estimate:estimateField,description:'description',team:'customfield_10200',epic:epicField,assignee:'assignee',priority:'priority',components:'components',fixVersions:'fixVersions',labels:'labels',duedate:'duedate'}[key];
+        const field={estimate:estimateField,description:'description',team:teamField,epic:epicField,assignee:'assignee',priority:'priority',components:'components',fixVersions:'fixVersions',labels:'labels',duedate:'duedate'}[key];
         if(!field||!Object.hasOwn(f,field)){unknown.push(rules[key]);continue;}
         const value=f[field];
         if(value==null||typeof value==='string'&&!value.trim()||Array.isArray(value)&&!value.length)problems.push(rules[key]);

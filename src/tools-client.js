@@ -7,7 +7,7 @@
       if(!res.headers.get('content-type')?.includes('application/json'))throw new Error('Вместо JSON получена страница входа.');
       return res.json();
     }
-    async refinement({board,jql='',config,source=board?'backlog':'jql',sprint,columnIndex},signal){
+    async refinement({board,jql='',config,source=board?'backlog':'jql',sprint,columnIndex,teamField='customfield_10200'},signal){
       board=String(board||'');
       if(!['jql','backlog','sprint','column'].includes(source))throw new Error('Неизвестный источник анализа.');
       if(board&&!/^\d+$/.test(board))throw new Error('Выберите доску из списка.');
@@ -15,6 +15,7 @@
       if(source==='jql'&&(!jql.trim()||jql.length>20000))throw new Error('Введите JQL до 20 000 символов.');
       if(source==='sprint'&&!/^\d+$/.test(String(sprint||'')))throw new Error('Выберите спринт.');
       config=T.settings(config);
+      if(!/^customfield_\d+$/.test(teamField))throw new Error('Выберите поле Team в общих настройках.');
       const [fields,boardConfig]=await Promise.all([this.get('api/2/field',signal),board?this.get(`agile/1.0/board/${board}/configuration`,signal):{}]);
       if(!Array.isArray(fields))throw new Error('Неизвестный формат полей.');
       const checkEstimate=config.types.some(t=>t.checks.estimate);
@@ -41,7 +42,7 @@
       }
       if(source==='jql')sourceLabel=`JQL: ${jql}`;
       const epic=fields.find(f=>f.schema?.custom==='com.pyxis.greenhopper.jira:gh-epic-link')?.id;
-      const requested=['summary','issuetype','description','assignee','priority','components','fixVersions','labels','duedate','customfield_10200',...(estimate.field?[estimate.field]:[]),...(epic?[epic]:[])];
+      const requested=['summary','issuetype','description','assignee','priority','components','fixVersions','labels','duedate',teamField,...(estimate.field?[estimate.field]:[]),...(epic?[epic]:[])];
       const issues=[],seen=new Set();let total;
       do {
         const start=issues.length;
@@ -50,7 +51,7 @@
         for(const issue of page.issues){if(!/^[A-Z][A-Z0-9_]*-\d+$/.test(issue.key||'')||seen.has(issue.key))throw new Error('Повтор или некорректный ключ: повторите загрузку.');seen.add(issue.key);issues.push(issue);}
         if(issues.length>total)throw new Error('Выдача изменилась. Повторите проверку.');
       }while(issues.length<total);
-      return {rows:T.inspect(issues,config,estimate.field,epic),total,estimate,at:new Date().toISOString(),source:sourceLabel};
+      return {rows:T.inspect(issues,config,estimate.field,epic,teamField),total,estimate,at:new Date().toISOString(),source:sourceLabel};
     }
     async history(board,limit,signal,onProgress,detailProfile){
       if(!/^\d+$/.test(board)||!Number.isInteger(limit)||limit<2||limit>30)throw new Error('Укажите ID доски и от 2 до 30 спринтов.');

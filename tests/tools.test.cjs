@@ -59,3 +59,11 @@ test('additional refinement checks distinguish empty fields, missing access and 
  const rows=T.inspect([{key:'A-1',fields:{issuetype:{name:'Task'},priority:null,components:[],fixVersions:[],labels:[],duedate:null}},{key:'A-2',fields:{issuetype:{name:'Task'}}},{key:'A-3',fields:{issuetype:{name:'Task'},priority:{id:'3'},components:[{id:'1'}],fixVersions:[{id:'1'}],labels:['ready'],duedate:'2026-12-01'}}],config,null,null);
  assert.equal(rows[0].problems.length,5);assert.equal(rows[0].unknown.length,0);assert.equal(rows[1].problems.length,0);assert.equal(rows[1].unknown.length,5);assert.equal(rows[2].problems.length,0);assert.equal(rows[2].unknown.length,0);
 });
+
+test('refinement uses configured Team mapping, never a same-ID unrelated field',async()=>{
+ const c=new T.Client('','https://jira.example.com'),calls=[];
+ c.get=async path=>{calls.push(path);if(path==='api/2/field')return[{id:'customfield_10107',name:'Team'},{id:'customfield_10200',name:'Fixed In'}];if(path.includes('/configuration'))return{name:'Board',type:'scrum'};return{startAt:0,total:2,issues:[{key:'A-1',fields:{issuetype:{name:'Story'},customfield_10107:'7',customfield_10200:null}},{key:'A-2',fields:{issuetype:{name:'Story'},customfield_10200:'build-1'}}]};};
+ const result=await c.refinement({board:'2',teamField:'customfield_10107',config:{types:[{name:'*',checks:{team:true}}]}},new AbortController().signal);
+ assert.deepEqual(result.rows[0].problems,[]);assert.deepEqual(result.rows[0].unknown,[]);assert.deepEqual(result.rows[1].unknown,['Нет Team']);
+ assert.match(calls.at(-1),/customfield_10107/);assert.doesNotMatch(calls.at(-1),/customfield_10200/);
+});

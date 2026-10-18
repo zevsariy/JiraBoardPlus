@@ -1,4 +1,4 @@
-globalThis.JbpSettingsMount=function(document,chrome=globalThis.chrome,window=globalThis.window){
+globalThis.JbpSettingsMount=function(document,chrome=globalThis.chrome,window=globalThis.window,options={}){
   const B = globalThis.JbpBoard, $ = id => document.getElementById(id);
   async function send(type, prefs) { const r = await chrome.runtime.sendMessage({ type, prefs }); if (!r?.ok) throw new Error(r?.error || 'Служба расширения недоступна'); return r.data; }
   function status(text, error = false) { $('status').textContent = text; $('status').className = error ? 'error' : ''; }
@@ -31,7 +31,7 @@ globalThis.JbpSettingsMount=function(document,chrome=globalThis.chrome,window=gl
   const connectionStatus=(text,error=false)=>{const box=$('connection-status');box.hidden=!text;box.querySelector('span').textContent=text;box.className=error?'error':'';};
   $('connection-status').querySelector('button').onclick=()=>connectionStatus('');
   async function connectionSend(type,body={}){const r=await chrome.runtime.sendMessage({type,...body});if(!r?.ok)throw new Error(r?.error||'Служба недоступна');return r.data;}
-  connectionSend('connectionGet').then(value=>{connection=value;$('base-url').value=value.baseUrl;$('project-key').value=value.project;$('save-connection').disabled=false;if(teamReady&&connection.baseUrl)loadTeamFields();}).catch(e=>connectionStatus(e.message,true));
+  connectionSend('connectionGet').then(value=>{connection=value;$('base-url').value=value.baseUrl;$('project-key').value=value.project;$('save-connection').disabled=!!options.embedded;if(teamReady&&connection.baseUrl)loadTeamFields();}).catch(e=>connectionStatus(e.message,true));
   $('connection-form').onsubmit=async event=>{
     event.preventDefault();const submit=event.submitter;submit.disabled=true;
     try{
