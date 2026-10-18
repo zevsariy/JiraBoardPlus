@@ -1,5 +1,7 @@
 (() => {
   if (location.protocol !== 'https:') return;
+  // Do not start observers, timers or messaging on Plans and unrelated Jira pages.
+  if (!location.pathname.endsWith('/secure/RapidBoard.jspa')) return;
   const app = globalThis.JiraBoardPlus;
   const context = document.querySelector('meta[name="ajs-context-path"]')?.content || '';
   let api = new app.Api(context);

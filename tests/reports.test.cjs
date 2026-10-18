@@ -112,9 +112,9 @@ test('configured Jira alone controls dynamic scripts; fresh install has no serve
  const h=harness();await h.run('write(empty())');await h.run(`command({type:'save',query:${JSON.stringify(config)}})`);await h.run("command({type:'run'})");await h.run('tick()');assert.equal(h.calls.length,0);assert.match(h.get().queries[0].lastError,/адрес Jira/);
  await h.run(`globalThis.registered=[];globalThis.unregistered=0;chrome.permissions={contains:async()=>true};chrome.scripting={getRegisteredContentScripts:async()=>registered,registerContentScripts:async rows=>{registered=rows;},unregisterContentScripts:async()=>{registered=[];unregistered++;}};`);
  await h.run('syncContent()');assert.equal(await h.run('registered.length'),0);
- await h.run("write({...empty(),baseUrl:'https://jira-one.example/jira'})");await h.run('syncContent()');assert.equal(await h.run('registered[0].matches[0]'),'https://jira-one.example/jira/*');
+ await h.run("write({...empty(),baseUrl:'https://jira-one.example/jira'})");await h.run('syncContent()');assert.equal(await h.run('registered[0].matches[0]'),'https://jira-one.example/jira/secure/RapidBoard.jspa*');assert.equal(await h.run('registered[0].matches[1]'),'https://jira-one.example/jira/browse/*');
  assert.equal(await h.run("isJiraPage('https://jira-one.example/jira/secure/RapidBoard.jspa','https://jira-one.example/jira')"),true);
  for(const url of ['https://jira-one.example/other/','https://jira-one.example.evil/jira/','https://jira-one.example/jira-other/'])assert.equal(await h.run(`isJiraPage(${JSON.stringify(url)},'https://jira-one.example/jira')`),false);
- await h.run("write({...empty(),baseUrl:'https://jira-two.example'})");await h.run('syncContent()');assert.equal(await h.run('registered[0].matches[0]'),'https://jira-two.example/*');assert.equal(await h.run('unregistered'),1);
+ await h.run("write({...empty(),baseUrl:'https://jira-two.example'})");await h.run('syncContent()');assert.equal(await h.run('registered[0].matches[0]'),'https://jira-two.example/secure/RapidBoard.jspa*');assert.equal(await h.run('unregistered'),1);
  await h.run('chrome.permissions.contains=async()=>false');await h.run('syncContent()');assert.equal(await h.run('registered.length'),0);
 });

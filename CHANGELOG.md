@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.20.21 — 2026-10-18
+
+- Restrict injected Jira scripts to RapidBoard and issue browse routes instead of the whole configured Jira site.
+- Exit content entry points before initializing timers, observers or messaging on Plans and unrelated pages.
+- Add no-initialization regression coverage for Plans, Structure and dashboards; retain board, Details, notes and Sprint report behavior.
+- Reload existing Jira tabs after updating to remove previously injected scripts. This isolates unnecessary activity; a Plans refresh caused by the extension has not been reproduced.
+
+
 ## 0.20.20 — 2026-10-18
 
 - Add native full-screen Gantt with search/navigation, full available width and height, and issue inspector inside the full-screen view.

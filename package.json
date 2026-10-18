@@ -1,6 +1,6 @@
 {
   "name": "jira-board-plus",
-  "version": "0.20.20",
+  "version": "0.20.21",
   "private": true,
   "scripts": {
     "test": "node --test tests/*.test.cjs",

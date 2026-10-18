@@ -1,5 +1,7 @@
 (() => {
   if(location.protocol!=='https:')return;
+  // Do not start observers, timers or messaging on Plans and unrelated Jira pages.
+  if (!location.pathname.endsWith('/secure/RapidBoard.jspa')) return;
   let prefs={},active='',host,dispose,chosenKeys;const hidden=new Map();
   function restore(){for(const [row,wasHidden]of hidden)row.hidden=wasHidden;hidden.clear();}
   function filter(keys){chosenKeys=keys;restore();if(!keys)return;for(const row of document.querySelectorAll('table tbody tr')){if(row.closest('[data-jbp-sprint]'))continue;const link=row.querySelector('a[href*="/browse/"]');const key=link?.textContent.trim();if(!/^[A-Z][A-Z0-9_]*-\d+$/.test(key||''))continue;hidden.set(row,row.hidden);row.hidden=!keys.has(key);}}

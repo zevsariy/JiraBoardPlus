@@ -1,5 +1,7 @@
 (() => {
   if (location.protocol !== 'https:') return;
+  // Do not start observers, timers or messaging on Plans and unrelated Jira pages.
+  if (!location.pathname.endsWith('/secure/RapidBoard.jspa') && !/\/browse\/[A-Z][A-Z0-9_]*-\d+(?:\/|$)/.test(location.pathname)) return;
   const keyPattern = /^[A-Z][A-Z0-9_]*-\d+$/;
   let enabled = false, timer, modal = null;
   const mounts = new Map();

@@ -1,5 +1,7 @@
 (() => {
   if(location.protocol!=='https:')return;
+  // Do not start observers, timers or messaging on Plans and unrelated Jira pages.
+  if (!location.pathname.endsWith('/secure/RapidBoard.jspa')) return;
   const responseTimes=new WeakMap();
   const B=JbpBoard,TTL=120000,keyPattern=/^[A-Z][A-Z0-9_]*-\d+$/;
   const context=document.querySelector('meta[name="ajs-context-path"]')?.content||'';

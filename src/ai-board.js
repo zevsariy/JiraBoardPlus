@@ -1,5 +1,7 @@
 (() => {
  if(location.protocol!=='https:')return;
+  // Do not start observers, timers or messaging on Plans and unrelated Jira pages.
+  if (!location.pathname.endsWith('/secure/RapidBoard.jspa')) return;
  let config,prefs,host;
  function sync(){
   const route=/RapidBoard\.jspa?$/.test(location.pathname)&&!new URLSearchParams(location.search).get('chart');

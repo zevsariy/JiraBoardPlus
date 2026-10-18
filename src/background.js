@@ -11,7 +11,7 @@ async function syncContent(){
   if(!chrome.scripting)return;
   const base=JbpConnection.from(await read()).baseUrl,registered=await chrome.scripting.getRegisteredContentScripts({ids:['jbp-jira']});
   const permitted=base&&await chrome.permissions.contains({origins:[new URL(base).origin+'/*']});
-  const matches=permitted?[base+'/*']:[];
+  const matches=permitted?[base+'/secure/RapidBoard.jspa*',base+'/browse/*']:[];
   if(registered.length && JSON.stringify(registered[0].matches)===JSON.stringify(matches) && JSON.stringify(registered[0].js)===JSON.stringify(CONTENT_FILES))return;
   if(registered.length)await chrome.scripting.unregisterContentScripts({ids:['jbp-jira']});
   if(permitted)await chrome.scripting.registerContentScripts([{id:'jbp-jira',matches,js:CONTENT_FILES,runAt:'document_idle',persistAcrossSessions:true}]);
