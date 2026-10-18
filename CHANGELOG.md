@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.24.5 — 2026-10-18
+
+- Stop embedded workspace keyboard events from reaching Jira shortcuts; keep workspace keyboard handlers scoped to its shadow root.
+- Make selected tabs and pressed view buttons visible in the Jira theme.
+- Describe backup export as handed to the browser rather than claiming the file was saved.
+- Verify real roadmap snapshots, zero-change comparison, local date scenario, conflict recalculation, scenario persistence and reset to original plan. Export and capacity need follow-up verification on the updated extension.
+
+
 ## 0.24.4 — 2026-10-18
 
 - Use the explicitly configured Team field in new JQL reports instead of assuming customfield_10200; preserve saved query columns.

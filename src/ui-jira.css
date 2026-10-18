@@ -12,3 +12,5 @@ input:not([type=checkbox]):not([type=radio]):not([type=color]),select,textarea{b
 .rm-row-label .rm-fold{min-height:26px;padding:2px;font-size:12px}
 .rm-conflict-legend{color:var(--ui-error)!important}.rm-dependency-legend{color:var(--rm-dependency)!important}
 .metric-selectors{align-items:flex-start;gap:16px}.metric-selectors>label,.metric-selectors>.search-picker>label{display:flex;flex-direction:column;gap:6px;margin:0}.metric-selectors input,.metric-selectors select{margin-top:0;box-sizing:border-box;min-height:34px}
+
+button[role="tab"][aria-selected="true"],button[aria-pressed="true"]{background:var(--ui-tint)!important;color:var(--ui-primary)!important;border-bottom:2px solid var(--ui-primary)!important;font-weight:600}
