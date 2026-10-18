@@ -20,3 +20,17 @@ body[data-ui-page=metrics] .metric-selectors>label,body[data-ui-page=metrics] .m
 .flow-filter-group .flow-checkbox{flex-direction:row;align-items:center;min-height:40px}.flow-filter-group button{min-height:40px}
 @media(max-width:1100px){.flow-period-grid,.flow-calculation-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.flow-period-grid button{justify-self:start}}
 @media(max-width:700px){body[data-ui-page=metrics] .metric-selectors,.flow-period-grid,.flow-calculation-grid{grid-template-columns:minmax(0,1fr)}}
+
+/* Metrics: progressive disclosure, with the same hierarchy in both themes. */
+.flow-dashboard details.flow-section{border:1px solid var(--ui-line);border-radius:12px;margin:16px 0;overflow:hidden}
+.flow-dashboard .flow-section>summary{padding:20px;cursor:pointer;list-style-position:inside}
+.flow-dashboard .flow-section>summary strong{font-size:18px;margin-left:8px}
+.flow-dashboard .flow-section>summary span{display:block;font-weight:400;margin:8px 0 0 24px;line-height:1.5;color:var(--ui-muted)}
+.flow-dashboard .flow-section>section{border:0;margin:0;padding:0 20px 20px}
+.flow-dashboard .flow-section>summary:hover{background:var(--ui-hover)}
+.flow-dashboard summary:focus-visible{outline:2px solid var(--ui-primary);outline-offset:-3px;border-radius:8px}
+.flow-dashboard .flow-options{padding:14px 16px;border:1px solid var(--ui-line);border-radius:12px}
+.flow-dashboard .flow-detail>summary{padding:12px 0;cursor:pointer}
+.flow-dashboard .flow-detail>div{overflow-x:auto}
+.metric-view-switch{display:flex;gap:8px;margin:16px 0;flex-wrap:wrap}
+.metric-view-switch button[aria-pressed=true]{border-color:var(--ui-primary);font-weight:700}

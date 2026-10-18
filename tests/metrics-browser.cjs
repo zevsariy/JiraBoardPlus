@@ -38,6 +38,7 @@ else if(u.pathname.endsWith('/field'))data=[];
  await page.locator('#board').fill('BETA');await page.getByRole('option',{name:'Beta Platform · Scrum · #2',exact:true}).click();await page.getByText('Спринтов: 2',{exact:true}).waitFor();releaseSlow();
  await page.locator('#sprint').fill('RELEASE 42');assert.equal(await page.locator('#sprint-options [role=option]').count(),1);await page.locator('#sprint').press('Enter');assert.equal(await page.locator('#open').count(),0);
  await page.locator('#metrics #meta').filter({hasText:'Original Time Estimate (h)'}).waitFor();assert.equal(calls.filter(x=>x.includes('/sprintreport')).length,1);await page.locator('#metrics #saved option').waitFor({state:'attached'});
+ assert.equal(await page.locator('#dashboard').isHidden(),true);await page.locator('#view-dashboard').click();assert.equal(await page.locator('#metrics').isHidden(),true);await page.locator('#view-sprint').click();assert.equal(calls.filter(x=>x.includes('/sprintreport')).length,1);
  await page.screenshot({path:'test-output/metrics-pickers.png',fullPage:true});
  failReport=true;await page.locator('#metrics #load').click();await page.locator('#metrics #status').filter({hasText:'HTTP 404'}).waitFor();await page.locator('#metrics #dismiss-status').click();assert.equal(await page.locator('#metrics #status-box').isHidden(),true);failReport=false;
  await page.locator('#metrics #load').click();await page.locator('#metrics #status').filter({hasText:'Данные загружены'}).waitFor();assert.equal(calls.filter(x=>x.includes('/sprintreport')).length,3);

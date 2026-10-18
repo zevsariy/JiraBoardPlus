@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.20.15 — 2026-10-18
+
+- Group metrics into current board, period results, completion time and Scrum trends with plain-language guidance.
+- Collapse calculation settings and detailed tables; keep the current overview open initially.
+- Switch between board overview and the selected sprint report without reloading either view.
+
+
 ## 0.20.14 — 2026-10-18
 
 - Load Jira fields automatically in settings and offer Team candidates with searchable names and IDs.

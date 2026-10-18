@@ -4,11 +4,13 @@
   const params=new URLSearchParams(location.search);let initialBoard=params.get('board');
   function message(text=''){$('message').hidden=!text;$('message-text').textContent=text;}
   $('dismiss-message').onclick=()=>message();
-  function clearPanel(){dispose?.();dispose=null;root.replaceChildren();}
+  function showView(report=false){$('dashboard').hidden=report;$('metrics').hidden=!report;$('view-dashboard').setAttribute('aria-pressed',String(!report));$('view-sprint').setAttribute('aria-pressed',String(report));}
+  $('view-dashboard').onclick=()=>showView(false);$('view-sprint').onclick=()=>showView(true);
+  function clearPanel(){$('metric-view-switch').hidden=true;showView(false);dispose?.();dispose=null;root.replaceChildren();}
   function clearSprint(){dashboardDispose?.();dashboardDispose=null;sprintsAbort?.abort();boardRevision++;sprint=null;clearPanel();sprintPicker.set([],'Сначала выберите доску');}
   function failure(e,action){message(e.message);$('list-status').textContent='';retry=action;$('retry-list').hidden=false;}
   const boardPicker=JbpSearchPicker($('board-picker'),{onSelect:selectBoard,onClear(){board=null;clearSprint();$('metrics-mode-label').hidden=true;$('list-status').textContent='Выберите доску из списка.';$('retry-list').hidden=true;}});
-  const sprintPicker=JbpSearchPicker($('sprint-picker'),{onSelect(item){sprint=item;clearPanel();dispose=JbpSprint.mount(root,{boardId:board.id,sprintId:sprint.id,baseUrl:connection.baseUrl,autoLoad:true});},onClear(){sprint=null;clearPanel();}});
+  const sprintPicker=JbpSearchPicker($('sprint-picker'),{onSelect(item){sprint=item;clearPanel();dispose=JbpSprint.mount(root,{boardId:board.id,sprintId:sprint.id,baseUrl:connection.baseUrl,autoLoad:true});$('metric-view-switch').hidden=false;showView(true);},onClear(){sprint=null;clearPanel();}});
   async function selectBoard(item,keepMode=false){
     board=item;clearSprint();message();$('retry-list').hidden=true;
     $('metrics-mode-label').hidden=false;if(!keepMode)$('metrics-mode').value='auto';
