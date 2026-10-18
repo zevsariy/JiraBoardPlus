@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.20.19 — 2026-10-18
+
+- Virtualize Gantt plans over 100 rows, rendering the visible window with overscan while retaining complete navigation indexes.
+- Schedule scroll rendering with requestAnimationFrame and dispose old listeners on redraw/reset.
+- Render dependency arrows near visible endpoints; preserve full dependency tables and exports.
+- Fix graph-to-Gantt navigation to reach unrendered rows.
+- Test 5000 synthetic rows, distant navigation, scrolling, dependency visibility and redraw position; Jira loading limit remains 2000.
+
+
 ## 0.20.18 — 2026-10-18
 
 - Search loaded roadmap issues by key/title, expand ancestors and focus the matching Gantt row without Jira requests.
