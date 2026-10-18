@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.20.10 — 2026-10-18
+
+- Clarify that the full JQL notification mode covers new issues, departed issues and changed column values.
+- Explain comparison with the previous successful query run and scope to selected report columns, with accessible help text.
+
 ## 0.20.9 — 2026-10-18
 
 - Show sprint cycle time and status age with two decimal places; tiny positive durations remain distinct from zero.
