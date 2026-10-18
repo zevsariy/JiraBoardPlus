@@ -22,11 +22,18 @@
    progress('Загрузка корневых задач релиза…');
    let previous=await this.search(`project = ${R.quote(project)}${scope.jql?' AND ('+scope.jql+')':''} AND ${versionField} = ${version.id} AND issuetype IN (${types(c.levels[0])})`+order,fields,signal);
    previous=previous.filter(issue=>!R.excluded(issue,c.excludeMasks));
-   const raw=previous.map(issue=>({issue,level:0,parent:''})),seen=new Set(previous.map(i=>i.key));
+   let parentChecks=0;const raw=previous.map(issue=>({issue,level:0,parent:''})),seen=new Set(previous.map(i=>i.key));
    for(let level=1;level<c.levels.length&&previous.length;level++){
     progress(`Загрузка уровня ${level+1} из ${c.levels.length}…`);const next=[],rule=c.levels[level],parents=new Map();for(const issue of previous){parents.set(issue.key,issue.key);if(issue.id)parents.set(String(issue.id),issue.key);}
     for(let i=0;i<previous.length;i+=25){const keys=previous.slice(i,i+25).map(x=>R.quote(x.key)).join(','),rows=await this.search(`issuetype IN (${types(rule)}) AND ${R.fieldJql(rule.parentField)} IN (${keys})`+order,fields,signal);
-     for(const issue of rows){if(R.excluded(issue,c.excludeMasks))continue;const parent=parents.get(R.parentRef(issue.fields[rule.parentField]));if(!parent)throw Error(`${issue.key}: Jira не вернула ожидаемое поле родителя. Проверьте настройку связи.`);if(seen.has(issue.key))throw Error('Задача повторяется на нескольких уровнях. Проверьте иерархию.');seen.add(issue.key);next.push(issue);raw.push({issue,level,parent});if(raw.length>issueLimit)throw Error('Превышен лимит '+issueLimit+' задач в иерархии. Сузьте область роадмэпа.');}
+     const unresolved=rows.filter(issue=>!R.excluded(issue,c.excludeMasks)&&!parents.has(R.parentRef(issue.fields[rule.parentField]))),verified=new Map();
+     if(unresolved.length){
+      const candidates=previous.slice(i,i+25);if(parentChecks+candidates.length>100)throw Error('Jira не возвращает поля родителей: превышен лимит дополнительных проверок связи (100). Сузьте область роадмэпа.');
+      progress('Проверка связей родителей через JQL…');
+      for(const candidate of candidates){parentChecks++;const matches=await this.search(`issuetype IN (${types(rule)}) AND ${R.fieldJql(rule.parentField)} = ${R.quote(candidate.key)}`+order,['key'],signal),wanted=new Set(unresolved.map(x=>x.key));for(const match of matches){if(!wanted.has(match.key))continue;if(verified.has(match.key))throw Error(`${match.key}: найдены несколько родителей по выбранному полю связи.`);verified.set(match.key,candidate.key);}}
+      warnings.push(`Уровень ${level+1}: для ${unresolved.length} задач связь подтверждена отдельными JQL-запросами; поле родителя отсутствует или имеет неизвестный формат.`);
+     }
+     for(const issue of rows){if(R.excluded(issue,c.excludeMasks))continue;const parent=parents.get(R.parentRef(issue.fields[rule.parentField]))||verified.get(issue.key);if(!parent)throw Error(`${issue.key}: связь с родителем не подтверждена Jira. Проверьте выбранное поле связи и обновите роадмэп.`);if(seen.has(issue.key))throw Error('Задача повторяется на нескольких уровнях. Проверьте иерархию.');seen.add(issue.key);next.push(issue);raw.push({issue,level,parent});if(raw.length>issueLimit)throw Error('Превышен лимит '+issueLimit+' задач в иерархии. Сузьте область роадмэпа.');}
     }previous=next;
    }
    progress('Загрузка блокирующих задач…');const blockerKeys=[...new Set(raw.flatMap(r=>(r.issue.fields.issuelinks||[]).filter(l=>String(l.type?.inward||'').trim().toLowerCase()===c.dependency.toLowerCase()).map(l=>l.inwardIssue?.key).filter(k=>R.KEY.test(k||'')&&!seen.has(k))))];

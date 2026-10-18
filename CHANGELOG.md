@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.21.1 — 2026-10-18
+
+- Recover hierarchy links when Jira search omits or cannot serialize the configured parent field, including Epic Link.
+- Verify each missing relationship with exact-parent JQL using the selected field; reject ambiguous or unconfirmed parents rather than guessing.
+- Bound fallback checks to 100 per load and record recovered links in data-quality warnings.
+- Add regression coverage for absent fields, confirmed links and ambiguous parents.
+
+
 ## 0.21.0 — 2026-10-18
 
 - Organize roadmap into accessible tabs and collapse setup after loading.
