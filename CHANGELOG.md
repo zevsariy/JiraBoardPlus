@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.20.23 — 2026-10-18
+
+- Add named local roadmap plans per Jira server/project (up to 50): create, restore, update/rename and delete.
+- Preserve scope, version field/release, hierarchy and field mappings, development cutoff, Team filter and Gantt view preferences.
+- Restore configuration without automatically querying issues; validate current metadata and explicitly rebuild for fresh results.
+- Cover persistence across reload, renaming, separate copies, deletion and restored field configuration in browser tests.
+
+
 ## 0.20.22 — 2026-10-18
 
 - Build dependency graph on demand instead of while the Gantt tab is active.

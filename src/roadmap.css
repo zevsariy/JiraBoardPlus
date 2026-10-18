@@ -49,3 +49,5 @@ body .rm-view-tabs button[aria-pressed=true]{background:var(--ui-primary);color:
 #rm-gantt-stage:fullscreen>#rm-timeline{flex:1 1 0;min-height:0;max-height:none;width:100%;box-sizing:border-box;overflow:auto}
 
 .rm-table-pages{display:flex;align-items:center;gap:16px;justify-content:flex-end;margin-top:12px}.rm-table-pages[hidden]{display:none}
+
+.rm-plan-controls{display:flex;flex-wrap:wrap;gap:12px;align-items:center}.rm-plan-controls>input,.rm-plan-controls>select{flex:1;min-width:200px}.rm-saved-plans h2{font-size:18px}
