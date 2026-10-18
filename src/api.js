@@ -9,8 +9,10 @@ globalThis.JiraBoardPlus = (() => {
     return String(id);
   }
   class Api {
-    constructor(base = '', transport = globalThis.fetch.bind(globalThis)) {
+    constructor(base = '', transport = globalThis.fetch.bind(globalThis), field = FIELD) {
       if (base && !/^\/[\w/-]*$/.test(base)) throw new Error('Недопустимый context path');
+      if (!/^customfield_\d+$/.test(field)) throw new Error('Некорректный ID поля Team');
+      this.field = field;
       this.base = base.replace(/\/$/, '');
       this.transport = transport;
     }
@@ -36,13 +38,13 @@ globalThis.JiraBoardPlus = (() => {
       return `api/2/issue/${key}`;
     }
     async read(key, signal) {
-      const data = await this.request(`${this.issuePath(key)}?fields=${FIELD}`, { signal });
-      if (!data.fields || !(FIELD in data.fields)) throw new Error('Поле Team недоступно в этой задаче.');
-      return teamId(data.fields[FIELD]);
+      const data = await this.request(`${this.issuePath(key)}?fields=${this.field}`, { signal });
+      if (!data.fields || !(this.field in data.fields)) throw new Error('Поле Team недоступно в этой задаче.');
+      return teamId(data.fields[this.field]);
     }
     async metadata(key, signal) {
       const data = await this.request(`${this.issuePath(key)}/editmeta`, { signal });
-      const field = data.fields?.[FIELD];
+      const field = data.fields?.[this.field];
       if (!field || !field.operations?.includes('set')) throw new Error('Team нельзя редактировать. Добавьте поле на Edit Screen и проверьте права Edit Issues.');
       return field;
     }
@@ -71,7 +73,7 @@ globalThis.JiraBoardPlus = (() => {
       const id = teamId(value);
       if (!id && metadata.required) throw new Error('Поле Team обязательное.');
       // Portfolio Server Team custom field accepts the numeric team ID encoded as a string.
-      await this.request(this.issuePath(key), { method: 'PUT', body: { fields: { [FIELD]: id || null } }, signal });
+      await this.request(this.issuePath(key), { method: 'PUT', body: { fields: { [this.field]: id || null } }, signal });
       const actual = await this.read(key, signal);
       if (actual !== id) throw new Error('Проверка после сохранения: Team отличается. Обновите данные задачи.');
       return actual;

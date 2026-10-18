@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.20.6 — 2026-10-18
+
+- Added a configurable Shared Team field ID for the Details editor; read, edit metadata and save now use the selected field.
+- Fixed backlog enhancements, private-note card discovery and AI board snapshots for compact Jira backlog cards.
+- Recognized the planning.nodetail backlog route in Team, card enhancements and private notes.
+- Added regression coverage for a non-default Team field and compact backlog cards.
+
 ## 0.20.5 — 2026-10-18
 
 - Restored offline report, metrics and refinement browser tests after the shared theme preference was introduced.

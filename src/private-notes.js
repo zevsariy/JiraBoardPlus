@@ -96,8 +96,8 @@
   function sync() {
     if (!enabled) { for (const v of mounts.values()) v.host.remove(); mounts.clear(); modal?.close(true); return; }
     const wanted = new Set(), url = new URL(location.href);
-    if (url.pathname.endsWith('/secure/RapidBoard.jspa') && ['work','planning','detail',null].includes(url.searchParams.get('view'))) {
-      for (const card of document.querySelectorAll('.ghx-issue[data-issue-key]')) if (keyPattern.test(card.dataset.issueKey) && card.getClientRects().length) { wanted.add(card); addMount(card, card.dataset.issueKey); }
+    if (url.pathname.endsWith('/secure/RapidBoard.jspa') && ['work','planning','planning.nodetail','detail',null].includes(url.searchParams.get('view'))) {
+      for (const card of document.querySelectorAll('.ghx-issue[data-issue-key], .ghx-issue-compact[data-issue-key]')) if (keyPattern.test(card.dataset.issueKey) && card.getClientRects().length) { wanted.add(card); addMount(card, card.dataset.issueKey); }
       const panel = [...document.querySelectorAll('#ghx-detail-view, #ghx-detail-contents')].find(p => p.getClientRects().length);
       const link = panel?.querySelector('#issuekey-val, .ghx-key a, a.issue-link[data-issue-key], a[href*="/browse/"]');
       const key = link?.getAttribute('data-issue-key') || link?.textContent.trim();

@@ -8,7 +8,7 @@ const assert = require('node:assert/strict');
   const browser = await chromium.launch({ channel: 'chrome', headless: true });
   try {
     const page = await browser.newPage();
-    await page.addInitScript(() => { globalThis.chrome = { runtime: { onMessage: { addListener(fn) { globalThis.changeTeamPrefs = prefs => fn({ type: 'boardPrefsChanged', prefs }); } }, sendMessage: async () => ({ ok: true, data: { visuals: true, team: true } }) } }; });
+    await page.addInitScript(() => { globalThis.chrome = { runtime: { onMessage: { addListener(fn) { globalThis.changeTeamPrefs = prefs => fn({ type: 'boardPrefsChanged', prefs }); } }, sendMessage: async () => ({ ok: true, data: { visuals: true, team: true, teamField: "customfield_10107" } }) } }; });
     const errors = []; page.on('pageerror', error => errors.push(error.message));
     let writes = 0;
     const values = { 'DEMO-1': '1', 'DEMO-2': '2' };
@@ -19,13 +19,13 @@ const assert = require('node:assert/strict');
       const key = url.pathname.match(/issue\/(DEMO-\d+)/)?.[1];
       let body;
       if (url.pathname.includes('teams-api')) body = url.searchParams.get('page') === '1' ? [{ id: 1, title: 'Alpha', shareable: true }, { id: 2, title: 'Beta', shareable: true }, { id: 3, title: 'Private', shareable: false }] : [];
-      else if (url.pathname.endsWith('editmeta')) body = { fields: { customfield_10200: { operations: ['set'], required: false } } };
-      else if (route.request().method() === 'PUT') { writes++; values[key] = route.request().postDataJSON().fields.customfield_10200; return route.fulfill({ status: 204 }); }
-      else if (key) body = { fields: { customfield_10200: values[key] } };
+      else if (url.pathname.endsWith('editmeta')) body = { fields: { customfield_10107: { operations: ['set'], required: false } } };
+      else if (route.request().method() === 'PUT') { writes++; values[key] = route.request().postDataJSON().fields.customfield_10107; return route.fulfill({ status: 204 }); }
+      else if (key) body = { fields: { customfield_10107: values[key] } };
       else throw new Error(`Unexpected request ${url}`);
       await route.fulfill({ contentType: 'application/json', body: JSON.stringify(body) });
     });
-    await page.goto('http://127.0.0.1/secure/RapidBoard.jspa?view=planning&selectedIssue=DEMO-1');
+    await page.goto('http://127.0.0.1/secure/RapidBoard.jspa?view=planning.nodetail&selectedIssue=DEMO-1');
     for (const file of ['api.js', 'team-panel.js', 'content.js']) {
       let source = fs.readFileSync(path.join(__dirname, '../src', file), 'utf8');
       if (file === 'content.js') source = source.replace("location.protocol !== 'https:'", "location.protocol !== 'http:'");
@@ -45,7 +45,7 @@ const assert = require('node:assert/strict');
     await page.locator('[data-jbp] #value').filter({ hasText: 'Beta' }).waitFor();
     assert.equal(values['DEMO-1'], '2'); assert.equal(writes, 1);
     await page.evaluate(() => {
-      history.pushState({}, '', '?view=planning&selectedIssue=DEMO-2');
+      history.pushState({}, '', '?view=planning.nodetail&selectedIssue=DEMO-2');
       document.getElementById('issuekey-val').textContent = 'DEMO-2';
     });
     await page.locator('[data-jbp][data-issue-key="DEMO-2"]').waitFor();
@@ -66,11 +66,11 @@ const assert = require('node:assert/strict');
     await page.locator('body').click({position:{x:800,y:400}});await page.keyboard.press('e');assert.ok(await page.evaluate(()=>shortcuts>0));
     await page.evaluate(() => changeTeamPrefs({ visuals: true, team: false }));
     await page.locator('[data-jbp]').waitFor({ state: 'detached' });
-    await page.evaluate(() => changeTeamPrefs({ visuals: true, team: true }));
+    await page.evaluate(() => changeTeamPrefs({ visuals: true, team: true, teamField: "customfield_10107" }));
     await page.locator('[data-jbp] #value:not([disabled])').waitFor();
-    await page.evaluate(() => changeTeamPrefs({ visuals: false, team: true }));
+    await page.evaluate(() => changeTeamPrefs({ visuals: false, team: true, teamField: "customfield_10107" }));
     await page.locator('[data-jbp]').waitFor({ state: 'detached' });
-    await page.evaluate(() => changeTeamPrefs({ visuals: true, team: true }));
+    await page.evaluate(() => changeTeamPrefs({ visuals: true, team: true, teamField: "customfield_10107" }));
     await page.locator('[data-jbp]').waitFor();
     await page.evaluate(() => document.getElementById('ghx-detail-view').style.display = 'none');
     await page.locator('[data-jbp]').waitFor({ state: 'detached' });

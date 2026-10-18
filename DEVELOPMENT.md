@@ -1,4 +1,4 @@
-# Jira Board Plus · 0.20.5
+# Jira Board Plus · 0.20.6
 
 Chrome Manifest V3 extension for Jira Server. Independent board-and-plus logo; no company branding or built-in Jira server address.
 
@@ -13,7 +13,7 @@ Chrome Manifest V3 extension for Jira Server. Independent board-and-plus logo; n
 
 ## Возможности
 
-- Shared Team в Details на доске и в бэклоге: поиск, выбор и сохранение по клику/Enter. Поле customfield_10200; необходимы Plans / Advanced Roadmaps и права редактирования.
+- Shared Team в Details на доске и в бэклоге: поиск, выбор и сохранение по клику/Enter. ID поля настраивается в разделе Team (по умолчанию customfield_10200); необходимы Plans / Advanced Roadmaps и права редактирования.
 - Отключаемые метки daily, блокировок, добавления после старта спринта, времени в статусе и наличия билда. Анализ бэклога включается отдельно.
 - JQL-запросы пользователя, колонки, расписание, сравнение результатов и уведомления. Предустановленных запросов нет.
 - Метрики по доске/спринту, Story Points или Original Time Estimate, фильтры исполнителя и типа задачи.

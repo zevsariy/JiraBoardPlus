@@ -10,7 +10,7 @@
   const root=host.attachShadow({mode:'closed'}),button=document.createElement('button');
   button.textContent='Анализ доски через ИИ';button.className='primary';root.append(button);globalThis.JbpUI?.mount(root,true);document.documentElement.append(host);
   button.onclick=()=>JbpAIUI.open('board',()=>{
-   const cards=[...document.querySelectorAll('.ghx-issue[data-issue-key]')].filter(n=>n.getClientRects().length);
+   const cards=[...document.querySelectorAll('.ghx-issue[data-issue-key], .ghx-issue-compact[data-issue-key]')].filter(n=>n.getClientRects().length);
    return JbpAIUI.send('aiBoardData',{keys:[...new Set(cards.map(n=>n.dataset.issueKey))]});
   });
  }

@@ -60,3 +60,13 @@ test('invalid issue and context path rejected before network', async () => {
   await assert.rejects(fixture([]).api.read('../other'), /ключ/);
   assert.throws(() => new Api('//evil.example'), /context/);
 });
+
+test('configured Team field reads, validates editability and writes only that field', async () => {
+  const field='customfield_10107',calls=[];
+  const replies=[json({fields:{[field]:'1'}}),json({fields:{[field]:{operations:['set']}}}),new Response(null,{status:204}),json({fields:{[field]:'2'}})];
+  const api=new Api('',async(url,options)=>{calls.push({url,...options});return replies.shift();},field);
+  assert.equal(await api.save('QA-1','2','1'),'2');
+  assert.deepEqual(JSON.parse(calls[2].body),{fields:{[field]:'2'}});
+  assert.ok(calls[0].url.endsWith('fields='+field));
+  assert.throws(()=>new Api('',async()=>{},'summary'),/ID/);
+});

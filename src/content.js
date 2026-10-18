@@ -2,10 +2,10 @@
   if (location.protocol !== 'https:') return;
   const app = globalThis.JiraBoardPlus;
   const context = document.querySelector('meta[name="ajs-context-path"]')?.content || '';
-  const api = new app.Api(context);
+  let api = new app.Api(context);
   let active = null, timer;
   let enabled = false;
-  const applyPrefs = prefs => { enabled = prefs.visuals !== false && prefs.team !== false; sync(); };
+  const applyPrefs = prefs => { const field = prefs.teamField || app.FIELD; if (field !== api.field) { active?.cleanup.forEach(fn => fn()); active = null; api = new app.Api(context, globalThis.fetch.bind(globalThis), field); } enabled = prefs.visuals !== false && prefs.team !== false; sync(); };
   chrome.runtime.onMessage.addListener(message => { if (message.type === 'boardPrefsChanged') applyPrefs(message.prefs); });
   chrome.runtime.sendMessage({ type: 'boardPrefsGet' }).then(r => { if (r?.ok) applyPrefs(r.data); }).catch(() => {});
   function detailsTarget(panel) {
@@ -19,7 +19,7 @@
   function detect() {
     if (!enabled) return null;
     const url = new URL(location.href);
-    if (!url.pathname.endsWith('/secure/RapidBoard.jspa') || !['planning','work','detail',null].includes(url.searchParams.get('view'))) return null;
+    if (!url.pathname.endsWith('/secure/RapidBoard.jspa') || !['planning','planning.nodetail','work','detail',null].includes(url.searchParams.get('view'))) return null;
     const panel = [...document.querySelectorAll('#ghx-detail-view, #ghx-detail-contents')].find(el => el.getClientRects().length && getComputedStyle(el).visibility !== 'hidden');
     if (!panel) return null;
     const link = panel.querySelector('#issuekey-val, .ghx-key a, a.issue-link[data-issue-key], a[href*="/browse/"]');
