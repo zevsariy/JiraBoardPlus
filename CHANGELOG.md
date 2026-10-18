@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.24.1 — 2026-10-18
+
+- Keep embedded section navigation visible and route Help/Settings anchor links within Jira.
+- Align metric selectors and compact roadmap tree controls in the Jira theme; preserve dependency legend colors.
+- Hide Gantt controls in graph mode while keeping issue details accessible.
+- Fall back to a full-window Gantt when browser fullscreen is unavailable; Escape restores the view.
+- Discover the default Team field by name instead of assuming an installation-specific ID. Saved mappings remain unchanged.
+- Add regressions for anchor navigation, denied fullscreen and Team field detection.
+
 ## 0.24.0 — 2026-10-18
 
 - Embed Roadmap, Tools and general Settings in the Jira workspace, sharing existing controllers and data with standalone pages.

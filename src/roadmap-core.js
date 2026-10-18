@@ -15,7 +15,7 @@ globalThis.JbpRoadmap = (() => {
  function defaults(fields,types){
   const find=(...names)=>{const found=fields.filter(f=>names.some(n=>f.name.toLowerCase()===n.toLowerCase()));return found.length===1?found[0].id:'';};
   const type=name=>types.filter(t=>t.name.toLowerCase()===name.toLowerCase()).map(t=>String(t.id));
-  return {levels:[{types:type('Component'),parentField:''},{types:type('Epic'),parentField:find('Parent Link')},{types:type('Task'),parentField:find('Epic Link')}],rankField:find('Rank'),teamField:fields.some(f=>f.id==='customfield_10200')?'customfield_10200':find('Team'),startField:find('Target start'),endField:find('Target end'),sprintField:find('Sprint'),storyPointsField:find('Story Points','Story points'),dateMode:'targets',dependency:'is blocked by'};
+  return {levels:[{types:type('Component'),parentField:''},{types:type('Epic'),parentField:find('Parent Link')},{types:type('Task'),parentField:find('Epic Link')}],rankField:find('Rank'),teamField:find('Team'),startField:find('Target start'),endField:find('Target end'),sprintField:find('Sprint'),storyPointsField:find('Story Points','Story points'),dateMode:'targets',dependency:'is blocked by'};
  }
  function config(raw){
   if(!Array.isArray(raw.levels)||!raw.levels.length||raw.levels.length>6)throw Error('Настройте от 1 до 6 уровней иерархии.');
