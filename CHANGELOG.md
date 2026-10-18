@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.20.18 — 2026-10-18
+
+- Search loaded roadmap issues by key/title, expand ancestors and focus the matching Gantt row without Jira requests.
+- Add persistent tree width, date navigation and a non-modal issue inspector with Escape/focus restoration.
+- Preserve timeline scroll during redraw and index hierarchy inclusion/dependency endpoints to avoid repeated scans.
+- Verify navigation, light/dark layouts and existing roadmap workflows with browser mocks.
+
+
 ## 0.20.17 — 2026-10-18
 
 - Respect hidden component controls for non-component roadmap scopes.
