@@ -80,3 +80,12 @@ test('progress separates hierarchy levels, teams and units, preserves zero and m
  assert.match(R.capacityStatus(a,'sp',10),/Нельзя подтвердить/);assert.match(R.capacityStatus(a,'sp',4),/минимум/);assert.match(R.capacityStatus(a,'count',3),/100%/);assert.match(R.capacityStatus(a,'hours',0),/не задана/);
  const i=issue('D-1');i.fields.timeoriginalestimate=7200;i.fields.customfield_8=3;const cfg=R.config({...c,storyPointsField:'customfield_8'}),n=R.build([{issue:i,level:0}],cfg,prefs).nodes[0];assert.equal(n.originalHours,2);assert.equal(n.storyPoints,3);
 });
+
+test('local scenarios roll up dates and recalculate conflicts without mutating baseline',()=>{
+ const a=issue('D-1'),b=issue('D-2'),d=issue('D-3');d.fields.issuelinks=[block('D-2')];
+ const m=R.build([{issue:a,level:0},{issue:b,level:1,parent:'D-1'},{issue:d,level:0}],c,prefs);R.applyCutoff(m,'2026-10-15',R.day('2026-10-01'));
+ const before=JSON.stringify(R.exportModel(m));const s=R.scenario(m,{'D-2':{start:'2026-10-05',end:'2026-10-25'}},'Later',R.day('2026-10-01'));
+ assert.equal(s.roots[0].end,R.day('2026-10-25'));assert.equal(s.roots[0].cutoffLateDays,10);assert.equal(s.edges[0].conflict,true);assert.equal(s.nodes.find(n=>n.key==='D-3').dependencies[0].conflict,true);assert.equal(s.scenario.localOnly,true);assert.equal(JSON.stringify(R.exportModel(m)),before);
+ assert.throws(()=>R.scenario(m,{'D-9':{start:'2026-10-01',end:'2026-10-02'}}),/недоступна/);assert.throws(()=>R.scenario(m,{'D-2':{start:'2026-10-03',end:'2026-10-02'}}),/обе даты/);
+ const cleared=R.scenario(m,{'D-3':{start:'2026-10-11',end:'2026-10-12'}},'No overlap',R.day('2026-10-01'));assert.equal(cleared.edges[0].conflict,false);
+});

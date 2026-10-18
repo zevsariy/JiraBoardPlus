@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.20.27 — 2026-10-18
+
+- Add local what-if date overrides from the issue inspector without writing to Jira.
+- Recalculate hierarchy rollups, deadline/cutoff risks and dependency conflicts on a cloned baseline; retain original sprint dates and statuses.
+- Save/select/delete up to 20 local scenarios per release and return to the loaded Jira baseline.
+- Mark scenario mode in full-screen navigation, exports, AI payloads and snapshots; validate scope/mapping compatibility on restore.
+- Test baseline immutability, conflict recalculation and scenario persistence/browser flows.
+
+
 ## 0.20.26 — 2026-10-18
 
 - Add roadmap progress by team at a selected hierarchy level, excluding parent/child double counting and external blockers.
