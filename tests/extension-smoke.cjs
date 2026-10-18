@@ -56,7 +56,7 @@ const assert = require('node:assert/strict');
     assert.equal((await worker.evaluate(() => globalThis.testNotices)).length, 1);
     const menu = await context.newPage();
     await menu.goto(worker.url().replace('src/background.js', 'popup.html'));
-    assert.equal(await menu.locator('input,select,form').count(),0);assert.equal(await menu.locator('button').count(),7);
+    assert.equal(await menu.locator('input,form').count(),0);assert.equal(await menu.locator('select#theme-choice').count(),1);assert.equal(await menu.locator('#theme-choice').inputValue(),'system');assert.equal(await menu.locator('button').count(),7);
     await menu.screenshot({path:'test-output/popup-menu.png'});
     const settingsTab=context.waitForEvent('page');await menu.locator('#open-settings').click();
     const popup=await settingsTab;await popup.waitForLoadState();assert.ok(popup.url().endsWith('/settings.html'));
@@ -94,7 +94,7 @@ const assert = require('node:assert/strict');
     // Verify connection settings through the real popup and worker. All Jira traffic remains mocked.
     await context.route('https://jira.example.com/**',route=>route.fulfill({contentType:'application/json',body:JSON.stringify({startAt:0,isLast:true,values:[]})}));
     await popup.screenshot({path:'test-output/settings-page.png',fullPage:true});
-    await popup.evaluate(()=>{chrome.permissions.request=async()=>true;});await popup.locator('#project-key').fill('atl');
+    await popup.evaluate(()=>{chrome.permissions.request=async()=>true;});await popup.locator('#project-key').fill('demo');
     await popup.getByRole('button',{name:'Сохранить подключение',exact:true}).click();
     await popup.locator('#connection-status').filter({hasText:'Сохранено'}).waitFor();
     assert.equal((await worker.evaluate(()=>chrome.storage.local.get('jbpReportsV1'))).jbpReportsV1.project,'DEMO');

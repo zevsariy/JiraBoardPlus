@@ -12,12 +12,12 @@ const assert = require('node:assert/strict');
       const url = new URL(route.request().url());
       assert.equal(url.origin, 'http://127.0.0.1');
       const file = url.pathname.slice(1);
-      assert.ok(['report.html', 'src/ui-theme.js','src/ui-tokens.css','src/ui-pages.css','src/ui-pages.js','src/report.js', 'src/report.css', 'src/brand.css', 'icons/board-plus.svg', 'icons/geometry.svg', 'src/reports-core.js'].includes(file));
+      assert.ok(['report.html', 'src/theme-preference.js', 'src/ui-theme.js','src/ui-tokens.css','src/ui-pages.css','src/ui-pages.js','src/report.js', 'src/report.css', 'src/brand.css', 'icons/board-plus.svg', 'icons/geometry.svg', 'src/reports-core.js'].includes(file));
       return route.fulfill({ body: fs.readFileSync(path.join(__dirname, '..', file)), contentType: file.endsWith('.js') ? 'application/javascript' : file.endsWith('.css') ? 'text/css' : file.endsWith('.svg') ? 'image/svg+xml' : 'text/html' });
     });
     await page.addInitScript(() => {
       const state = { baseUrl: 'https://jira.example.com', queries: [], results: {}, jobs: {}, context: '', noticeError: '' };
-      globalThis.chrome = { storage: { onChanged: { addListener() {} } }, runtime: {
+      globalThis.chrome = { storage: { local: { get: async () => ({}), set: async () => {} }, onChanged: { addListener() {} } }, runtime: {
         sendMessage: async message => {
           const R = globalThis.JbpReports;
           if(message.type==='testNotice'){state.noticeError='Уведомление не доставлено: Unable to download all specified images.';state.noticeErrorId='sample';}

@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.20.5 — 2026-10-18
+
+- Restored offline report, metrics and refinement browser tests after the shared theme preference was introduced.
+- Updated extension smoke coverage for the popup theme selector and neutral project fixture.
+- Added `npm run test:browser` to run all 16 browser scenarios and report every failure.
+- These checks use synthetic Jira fixtures; they do not certify compatibility with a live Jira installation.
+
 ## 0.20.4 — 2026-10-11
 
 - Added optional support links in the popup and settings, opening the donation page in a new tab.

@@ -1,4 +1,4 @@
-# Jira Board Plus · 0.20.4
+# Jira Board Plus · 0.20.5
 
 Chrome Manifest V3 extension for Jira Server. Independent board-and-plus logo; no company branding or built-in Jira server address.
 
@@ -107,3 +107,8 @@ P50/P70/P80/P85: nearest rank, медиана отдельно. Выбранно
 В Chrome загрузите корень репозитория через chrome://extensions → Режим разработчика → Загрузить распакованное расширение. Не добавляйте в Git выгрузки Jira, ключи API и профили браузера.
 
 Исходники: src/, страницы: *.html, иконки: icons/, тесты: tests/. Текущая версия определяется manifest.json.
+
+
+### Browser regression suite
+
+Run `npm run test:browser` after installing Playwright and Chrome / Edge. The suite runs 16 offline scenarios, continues after failures and returns a nonzero exit code if any fail. Tests use synthetic Jira responses; a successful run does not replace live integration testing. Screenshots are written to ignored `test-output/`.

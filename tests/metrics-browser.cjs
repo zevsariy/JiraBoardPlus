@@ -25,7 +25,7 @@ else if(u.pathname.endsWith('/field'))data=[];
  await page.addInitScript(()=>{
   let connection={baseUrl:'https://127.0.0.1/jira',project:'DEMO'},listeners=[];
   globalThis.setProject=project=>{connection={...connection,project};listeners.forEach(fn=>fn({jbpReportsV1:{}},'local'));};
-  globalThis.chrome={storage:{onChanged:{addListener:fn=>listeners.push(fn)}},runtime:{sendMessage:async m=>{
+  globalThis.chrome={storage:{local:{get:async()=>({}),set:async()=>{}},onChanged:{addListener:fn=>listeners.push(fn)}},runtime:{sendMessage:async m=>{
    if(m.type==='connectionGet')return {ok:true,data:connection};
    if(m.type==='sprintStore'){if(m.op==='profileGet')await new Promise(resolve=>setTimeout(resolve,50));return {ok:true,data:m.op==='snapshotList'?[]:{mode:'time',spField:'',includeSubtasks:false}};}
    throw new Error('Unexpected message '+m.type);
