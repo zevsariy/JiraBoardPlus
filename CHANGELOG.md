@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.20.12 — 2026-10-18
+
+- Group sprint metrics into scope, plan completion, estimates, and cycle time/reopens sections with responsive tile grids.
+- Hide the estimates section for count-only boards; preserve calculations and filters.
+
 ## 0.20.11 — 2026-10-18
 
 - Align sprint assignee, issue type and percentile filters in a responsive grid with labels above inputs and actions below lists.

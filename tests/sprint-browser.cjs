@@ -17,7 +17,8 @@ await page.locator('[data-jbp-sprint] #load').click();await page.locator('[data-
 const filterBoxes=await Promise.all(['assignees','types','percentile'].map(id=>page.locator('[data-jbp-sprint] #'+id).boundingBox()));
 assert.ok(Math.abs(filterBoxes[0].y-filterBoxes[1].y)<2);assert.ok(Math.abs(filterBoxes[1].y-filterBoxes[2].y)<2);
 assert.ok(filterBoxes[0].x+filterBoxes[0].width<=filterBoxes[1].x);
-const tiles=await page.locator('[data-jbp-sprint] #stats .stat').evaluateAll(es=>es.map(e=>e.getBoundingClientRect().width));assert.ok(Math.max(...tiles)-Math.min(...tiles)<2);
+assert.equal(await page.locator('[data-jbp-sprint] #stats .metric-group').count(),4);
+for(const group of await page.locator('[data-jbp-sprint] #stats .metric-grid').all()){const widths=await group.locator('.stat').evaluateAll(es=>es.map(e=>e.getBoundingClientRect().width));assert.ok(Math.max(...widths)-Math.min(...widths)<2);}
 fs.mkdirSync(path.join(__dirname,'../test-output'),{recursive:true});await page.screenshot({path:path.join(__dirname,'../test-output/sprint-aligned-wide.png'),fullPage:true});
 assert.equal(await page.locator('[data-jbp-sprint-export]').count(),0);
 assert.equal(await page.locator('[data-jbp-sprint] #workStatuses').count(),0);assert.equal(await page.locator('[data-jbp-sprint] #doneStatuses').count(),0);assert.equal(await page.locator('[data-jbp-sprint] #export-block #export').count(),1);assert.equal(await page.locator('[data-jbp-sprint] #export-block #format').count(),1);assert.equal(await page.getByRole('button',{name:'Выгрузить для ИИ',exact:true}).count(),1);
