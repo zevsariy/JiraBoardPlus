@@ -1,15 +1,15 @@
-(() => {
+globalThis.JbpReportsMount=function(document,options={}){
   const R = globalThis.JbpReports, $ = id => document.getElementById(id);
-  let state, editingId = null, columns = [], fields = { ...R.FIELDS }, refreshTimer;
+  let disposed=false,state, editingId = null, columns = [], fields = { ...R.FIELDS }, refreshTimer;
   async function send(type, data = {}) {
-    const result = await chrome.runtime.sendMessage({ type, ...data });
+    const result = await chrome.runtime.sendMessage(options.embedded?{type:'embeddedReport',command:{type,...data}}:{type,...data});
     if (!result?.ok) throw new Error(result?.error || 'Фоновая служба недоступна. Перезагрузите расширение.');
-    return result.data;
+    if(disposed)throw Error('Раздел закрыт');return result.data;
   }
   const date = value => value ? new Date(value).toLocaleString('ru-RU') : '—';
   function node(tag, text, className) { const el = document.createElement(tag); if (text != null) el.textContent = text; if (className) el.className = className; return el; }
   function button(text, action) { const el = node('button', text); el.type = 'button'; el.addEventListener('click', () => safe(action)); return el; }
-  function error(message) { $('message-text').textContent = message; $('message').hidden = !message; }
+  function error(message) { if(disposed)return; $('message-text').textContent = message; $('message').hidden = !message; }
   async function safe(action) { try { error(''); await action(); } catch (e) { error(e.message); } }
   function link(row) { const a = node('a', row.key); a.href = `${state.baseUrl || R.ORIGIN + state.context}/browse/${encodeURIComponent(row.key)}`; a.target = '_blank'; a.rel = 'noopener noreferrer'; return a; }
   function render() {
@@ -104,6 +104,9 @@
   $('dismiss-message').onclick=()=>error('');
   $('run-all').onclick = () => safe(async () => { state = await send('run'); render(); });
   async function refresh() { state = await send('get'); render(); }
-  chrome.storage.onChanged.addListener((changes, area) => { if (area === 'local' && changes.jbpReportsV1) { clearTimeout(refreshTimer); refreshTimer = setTimeout(() => safe(refresh), 150); } });
-  safe(async () => { await refresh(); if (location.hash) document.getElementById(decodeURIComponent(location.hash.slice(1)))?.scrollIntoView(); });
-})();
+  const changed=(changes,area)=>{if(!disposed&&area==='local'&&changes.jbpReportsV1){clearTimeout(refreshTimer);refreshTimer=setTimeout(()=>safe(refresh),150);}};chrome.storage.onChanged.addListener(changed);
+  const notified=m=>{if(m.type==='embeddedReportChanged')changed({jbpReportsV1:true},'local');};if(options.embedded)chrome.runtime.onMessage.addListener(notified);
+  safe(async () => { await refresh(); if (!options.embedded&&location.hash) document.getElementById(decodeURIComponent(location.hash.slice(1)))?.scrollIntoView(); });
+return ()=>{disposed=true;clearTimeout(refreshTimer);chrome.storage.onChanged.removeListener(changed);if(options.embedded)chrome.runtime.onMessage.removeListener(notified);$('editor').close();};
+};
+if(!globalThis.jbpShellInstalled)JbpReportsMount(document);

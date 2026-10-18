@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.23.0 — 2026-10-18
+
+- Add shared embedded navigation between Metrics, JQL reports and Help under the Jira header.
+- Reuse report CRUD, schedules, results, field selection and notification actions through a sender-validated, operation-allowlisted bridge.
+- Notify embedded reports of background updates without polling Jira; remove listeners and close dialogs on leaving the section.
+- Scope controllers to their own content and ignore obsolete section loads. Keep Roadmap, Tools and Settings as explicit standalone links for the next migration stages.
+- Verify embedded JQL creation and section transitions, plus standalone report regression.
+
+
 ## 0.22.1 — 2026-10-18
 
 - Apply the Jira/AUI theme consistently to the embedded metrics shell and nested reports, including entry from Dashboard pages.

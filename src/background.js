@@ -19,7 +19,7 @@ async function syncContent(){
 }
 const empty = () => ({ queries: [], results: {}, jobs: {}, context: '', noticeError: '', fieldNames: {} });
 async function read() { return (await chrome.storage.local.get(STORE))[STORE] || empty(); }
-async function write(state) { await chrome.storage.local.set({ [STORE]: state }); }
+async function write(state) { await chrome.storage.local.set({ [STORE]: state });if(chrome.tabs?.query&&state.baseUrl){const base=state.baseUrl;chrome.tabs.query({url:new URL(base).origin+'/*'}).then(tabs=>Promise.allSettled(tabs.filter(t=>isJiraPage(t.url,base)).map(t=>chrome.tabs.sendMessage(t.id,{type:'embeddedReportChanged'})))).catch(()=>{});} }
 async function request(context, path, body) {
   if(!context)throw new Error('Укажите адрес Jira в настройках или мастере.');
   const response = await fetch(`${context}/rest/api/2/${path}`, {
@@ -161,7 +161,7 @@ async function command(message) {
   return state;
 }
 chrome.runtime.onMessage.addListener((message, sender, reply) => {
-  if(['embeddedOpen','embeddedConnection','embeddedStore','embeddedPage'].includes(message.type)){embeddedMessage(message,sender).then(data=>reply({ok:true,data}),error=>reply({ok:false,error:error.message}));return true;}
+  if(['embeddedOpen','embeddedConnection','embeddedStore','embeddedPage','embeddedReport'].includes(message.type)){embeddedMessage(message,sender).then(data=>reply({ok:true,data}),error=>reply({ok:false,error:error.message}));return true;}
   if(['aiGet','aiSave','aiAnalyze','aiCancel','aiBoardData'].includes(message.type)){aiMessage(message,sender).then(data=>reply({ok:true,data}),e=>reply({ok:false,error:e.message}));return true;}
   if(sender.id===chrome.runtime.id && message.type==='privateNotes'){
     serial(async()=>{
@@ -282,14 +282,16 @@ async function syncEmbedded(){
 async function embeddedMessage(message,sender){
  const connection=JbpConnection.from(await read());if(sender.id!==chrome.runtime.id||!sender.tab?.id||sender.frameId!==0||!isJiraPage(sender.url,connection.baseUrl))throw Error('Недопустимая страница Jira.');
  if(message.type==='embeddedConnection')return connection;
- if(message.type==='embeddedPage'){if(!['metrics.html','settings.html','help.html','onboarding.html'].includes(message.page))throw Error('Недопустимая страница.');await chrome.tabs.create({url:chrome.runtime.getURL(message.page)});return true;}
+ if(message.type==='embeddedReport'){const cmd=message.command;if(!['get','save','delete','run','fields','dismissNotice','testNotice'].includes(cmd?.type))throw Error('Недопустимая операция отчёта.');return serial(()=>command(cmd));}
+ if(message.type==='embeddedPage'){if(!['metrics.html','report.html','roadmap.html','tools.html','settings.html','help.html','onboarding.html'].includes(message.page))throw Error('Недопустимая страница.');await chrome.tabs.create({url:chrome.runtime.getURL(message.page)});return true;}
  if(message.type==='embeddedStore'){
   if(message.op==='get'&&message.key==='jbpBoardPrefs')return {jbpBoardPrefs:{...JbpBoard.defaults,...(await chrome.storage.local.get('jbpBoardPrefs')).jbpBoardPrefs}};
   const prefix='jbpDashboard:'+encodeURIComponent(connection.baseUrl)+':';if(typeof message.key!=='string'||!message.key.startsWith(prefix)||message.key.length>500)throw Error('Недопустимый раздел настроек.');
   if(message.op==='get')return chrome.storage.local.get(message.key);
   if(message.op!=='set'||!message.value||typeof message.value!=='object'||JSON.stringify(message.value).length>20000)throw Error('Некорректные настройки.');await chrome.storage.local.set({[message.key]:message.value});return true;
  }
- const modules=[['JbpUI','src/ui-theme.js'],['JbpBoard','src/board-core.js'],['JbpSprint','src/sprint-core.js'],['JbpSprint.Client','src/sprint-client.js'],['marked','src/vendor/marked.umd.js'],['JbpMarkdown','src/ai-markdown.js'],['JbpAIUI','src/ai-ui.js'],['JbpSprint.mount','src/sprint-ui.js'],['JbpSearchPicker','src/search-picker.js'],['JbpDashboard','src/dashboard-core.js'],['JbpDashboard.load','src/dashboard-client.js'],['JbpCharts','src/dashboard-charts.js'],['JbpDashboard.mount','src/dashboard-ui.js'],['JbpMetricsMount','src/metrics.js']];
+ const section=message.section||'metrics';if(!['metrics','report','help'].includes(section))throw Error('Раздел недоступен.');
+ const modules=section==='help'?[]:section==='report'?[['JbpReports','src/reports-core.js'],['JbpReportsMount','src/report.js']]:[['JbpUI','src/ui-theme.js'],['JbpBoard','src/board-core.js'],['JbpSprint','src/sprint-core.js'],['JbpSprint.Client','src/sprint-client.js'],['marked','src/vendor/marked.umd.js'],['JbpMarkdown','src/ai-markdown.js'],['JbpAIUI','src/ai-ui.js'],['JbpSprint.mount','src/sprint-ui.js'],['JbpSearchPicker','src/search-picker.js'],['JbpDashboard','src/dashboard-core.js'],['JbpDashboard.load','src/dashboard-client.js'],['JbpCharts','src/dashboard-charts.js'],['JbpDashboard.mount','src/dashboard-ui.js'],['JbpMetricsMount','src/metrics.js']];
  for(const [name,file] of modules){const [r]=await chrome.scripting.executeScript({target:{tabId:sender.tab.id},func:path=>{let v=globalThis;for(const part of path.split('.'))v=v?.[part];return !!v;},args:[name]});if(!r?.result)await chrome.scripting.executeScript({target:{tabId:sender.tab.id},files:[file]});}
- const html=await (await fetch(chrome.runtime.getURL('metrics.html'))).text();const css=await Promise.all(['report','brand','dashboard','ui-tokens','ui-pages','ui-jira'].map(async n=>(await fetch(chrome.runtime.getURL('src/'+n+'.css'))).text()));return {html,css:css.join('\n')};
+ const html=await (await fetch(chrome.runtime.getURL(section+'.html'))).text();const css=await Promise.all(['report','brand',...(section==='help'?['guide']:['dashboard']),'ui-tokens','ui-pages','ui-jira'].map(async n=>(await fetch(chrome.runtime.getURL('src/'+n+'.css'))).text()));return {html,css:css.join('\n')};
 }
