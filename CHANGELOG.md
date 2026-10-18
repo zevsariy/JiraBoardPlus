@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.20.7 — 2026-10-18
+
+- Calculate Jira status age on cards using the response Date header, avoiding temporary invalid-history errors when the Jira clock is ahead of the browser.
+- Keep local-clock fallback when the server omits Date; history consistency checks remain enabled.
+- Added a browser regression with future transitions relative to the client clock.
+
 ## 0.20.6 — 2026-10-18
 
 - Added a configurable Shared Team field ID for the Details editor; read, edit metadata and save now use the selected field.

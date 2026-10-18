@@ -1,5 +1,6 @@
 (() => {
   if(location.protocol!=='https:')return;
+  const responseTimes=new WeakMap();
   const B=JbpBoard,TTL=120000,keyPattern=/^[A-Z][A-Z0-9_]*-\d+$/;
   const context=document.querySelector('meta[name="ajs-context-path"]')?.content||'';
   if(context&&!/^\/[\w/-]*$/.test(context))return;
@@ -24,7 +25,7 @@
   function clearCardStyle(el){el.removeAttribute('data-jbp-added');el.removeAttribute('data-jbp-filled');for(const key of ['--jbp-added','--jbp-width','--jbp-fill'])el.style.removeProperty(key);}
   function clean(){hideTooltip();document.querySelectorAll('[data-jbp-card],[data-jbp-board]').forEach(el=>el.remove());document.querySelectorAll('[data-jbp-added],[data-jbp-filled]').forEach(clearCardStyle);bar=null;}
   const css=document.createElement('style');css.textContent='[data-jbp-added]{outline:var(--jbp-width) solid var(--jbp-added)!important;outline-offset:calc(-1 * var(--jbp-width))}[data-jbp-filled]{background-color:var(--jbp-fill)!important}[data-jbp-card]{display:block;clear:both;padding:4px 7px;pointer-events:auto!important;position:relative;z-index:2}[data-jbp-board]{display:block;clear:both;margin:6px 10px}';document.head.append(css);
-  async function get(path,signal){const res=await fetch(`${context}/rest/${path}`,{credentials:'same-origin',cache:'no-store',redirect:'error',headers:{Accept:'application/json'},signal:AbortSignal.any([signal,AbortSignal.timeout(15000)])});if(!res.ok)throw new Error(`HTTP ${res.status}: ${res.status===401?'войдите в Jira':res.status===403?'нет доступа':'данные недоступны'}`);if(!res.headers.get('content-type')?.includes('application/json'))throw new Error('Ответ не JSON: проверьте сессию Jira.');return res.json();}
+  async function get(path,signal){const res=await fetch(`${context}/rest/${path}`,{credentials:'same-origin',cache:'no-store',redirect:'error',headers:{Accept:'application/json'},signal:AbortSignal.any([signal,AbortSignal.timeout(15000)])});if(!res.ok)throw new Error(`HTTP ${res.status}: ${res.status===401?'войдите в Jira':res.status===403?'нет доступа':'данные недоступны'}`);if(!res.headers.get('content-type')?.includes('application/json'))throw new Error('Ответ не JSON: проверьте сессию Jira.');const data=await res.json(),serverTime=Date.parse(res.headers.get('date'));if(data&&typeof data==='object')responseTimes.set(data,Number.isFinite(serverTime)?serverTime+999:Date.now());return data;}
   async function loadScope(id, signal) {
     const result = new Map(); let start = 0;
     for (let page = 0; page < 20; page++) {
@@ -127,7 +128,7 @@
         if(p.build){try{if(buildError)throw new Error(buildError);entry.build=B.hasBuild(issue,buildField,p);}catch(e){entry.buildError=e.message;}}
         if(p.age){try{
           if(p.source==='timepiece'){const params=new URLSearchParams({issueKey:key,columnsBy:'statusDuration',multiVisitBehavior:p.timeMode,calendar:p.calendar,dayLength:'24HourDays',viewFormat:'hours',outputType:'json'});const report=await get(`tis/report/1.0/api/issue?${params}`,signal);entry.statuses=B.timepieceStatuses(report,key,issue.fields.status?.id,p.timeMode,p.timeUnit);}
-          else entry.statuses=B.jiraTimes(issue,p.timeMode);
+          else entry.statuses=B.jiraTimes(issue,p.timeMode,responseTimes.get(issue));
           entry.hours=entry.statuses.find(v=>v.current)?.hours;
           entry.ageTitle=`${p.source==='timepiece'?'Timepiece 5.1':'Jira'} · ${issue.fields.status?.name}\n${p.timeMode==='last'?'Текущий визит (для других статусов — последний)':'Сумма всех визитов в каждый статус'} · календарь ${p.source==='timepiece'?p.calendar:'24×7'}\nДень = 24 ч, неделя = 168 ч. Данные на ${new Date(entry.at).toLocaleTimeString()}.`;
         }catch(e){if(signal.aborted)throw e;entry.ageError=e.message;}}

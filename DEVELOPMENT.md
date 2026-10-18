@@ -1,4 +1,4 @@
-# Jira Board Plus · 0.20.6
+# Jira Board Plus · 0.20.7
 
 Chrome Manifest V3 extension for Jira Server. Independent board-and-plus logo; no company branding or built-in Jira server address.
 
