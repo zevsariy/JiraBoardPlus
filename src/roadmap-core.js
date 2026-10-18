@@ -86,7 +86,7 @@ globalThis.JbpRoadmap = (() => {
   const today=day(new Date(now).toISOString());for(const n of model.nodes){n.cutoffLate=!n.external&&cutoff!=null&&n.end!=null&&n.end>cutoff;n.cutoffOverdue=!n.external&&cutoff!=null&&cutoff<today&&!n.done;n.cutoffRisk=n.external||cutoff==null?'off':n.cutoffLate||n.cutoffOverdue?'late':n.end==null||n.unknown?'unknown':'ok';n.cutoffLateDays=n.cutoffLate?Math.ceil((n.end-cutoff)/DAY):0;}return model;
  }
  function exportModel(model){
-  const utc=v=>v==null?null:new Date(v).toISOString(),node=n=>{const out={...n,children:n.children.map(c=>c.key),segments:n.segments.map(s=>({...s,start:utc(s.start),end:utc(s.end)}))};for(const k of ['start','end','ownStart','ownEnd','due','rootDue'])out[k]=utc(n[k]);return out;};
+  const utc=v=>v==null?null:new Date(v).toISOString(),node=n=>{const out={...n,children:n.children.map(c=>c.key),segments:n.segments.map(s=>({...s,start:utc(s.start),end:utc(s.end)}))};for(const k of ['start','end','ownStart','ownEnd','due','rootDue','baselineStart','baselineEnd'])out[k]=utc(n[k]);return out;};
   const version={...model.version};for(const k of ['releaseDate','startDate'])if(version[k])version[k]=utc(day(version[k]));
   return {...model,version,cutoff:utc(model.cutoff),nodes:model.nodes.map(node),roots:model.roots.map(n=>n.key)};
  }
@@ -125,7 +125,7 @@ globalThis.JbpRoadmap = (() => {
   return reasons;
  }
  function scenario(base,overrides,name='Локальный сценарий',now=Date.now()){
-  const model=structuredClone(base),byKey=new Map(model.nodes.map(n=>[n.key,n]));
+  const model=structuredClone(base),byKey=new Map(model.nodes.map(n=>[n.key,n]));for(const n of model.nodes){n.baselineStart=n.start;n.baselineEnd=n.end;}
   for(const [key,dates]of Object.entries(overrides)){const n=byKey.get(key),start=day(dates.start),end=day(dates.end);if(!n||n.external)throw Error('Задача сценария недоступна в иерархии: '+key);if(start==null||end==null||end<start)throw Error(key+': задайте обе даты; окончание не раньше начала.');n.ownStart=start;n.ownEnd=end;n.source='Локальный сценарий';n.scenarioEdited=true;}
   function roll(n){for(const c of n.children)roll(c);const starts=[n.ownStart,...n.children.map(c=>c.start)].filter(v=>v!=null),ends=[n.ownEnd,...n.children.map(c=>c.end)].filter(v=>v!=null);n.start=starts.length?Math.min(...starts):null;n.end=ends.length?Math.max(...ends):null;n.unknown=n.children.length?n.children.reduce((sum,c)=>sum+c.unknown,0):n.ownEnd==null?1:0;if(n.children.length&&(n.start!==n.ownStart||n.end!==n.ownEnd))n.source='План сценария + дочерние задачи';}
   const today=day(new Date(now).toISOString());
@@ -137,6 +137,28 @@ globalThis.JbpRoadmap = (() => {
  function progress(model,level){
   const rows=new Map();for(const n of model.nodes){if(n.external||n.level!==Number(level))continue;const id=n.teamId||'';if(!rows.has(id))rows.set(id,{id,team:n.team,count:0,done:0,sp:0,spDone:0,spMissing:0,hours:0,hoursDone:0,hoursMissing:0});const r=rows.get(id);r.count++;if(n.done)r.done++;for(const [field,unit]of [['storyPoints','sp'],['originalHours','hours']]){const value=estimate(n[field]);if(value==null)r[unit+'Missing']++;else{r[unit]+=value;if(n.done)r[unit+'Done']+=value;}}}
   return [...rows.values()].sort((a,b)=>a.team.localeCompare(b.team));
+ }
+ const backupSuffix=s=>s===''||['plans','scope','components','versionField','view','treeWidth'].includes(s)||/^cutoff:\d+$/.test(s)||/^(snapshots|scenarios|capacity):(fixVersion|affectedVersion):\d+$/.test(s);
+ function backupEntries(data,context){
+  if(!data||data.format!=='jbp-roadmap-backup-v1'||data.context!==context||!Array.isArray(data.entries)||data.entries.length>1000)throw Error('Резервная копия должна относиться к той же Jira и проекту.');
+  const seen=new Set();for(const item of data.entries){if(!Array.isArray(item)||item.length!==2||typeof item[0]!=='string'||!backupSuffix(item[0])||seen.has(item[0]))throw Error('Некорректные разделы резервной копии.');seen.add(item[0]);const value=item[1];if(value===null||value===undefined)throw Error('Пустой раздел резервной копии.');if(item[0]==='')config(value);
+   const suffix=item[0];if(suffix==='scope')scope(value);if(suffix==='components'&&(!Array.isArray(value)||value.some(v=>!/^\d+$/.test(String(v)))))throw Error('Некорректные компоненты.');if(suffix==='versionField'&&!['fixVersion','affectedVersion'].includes(value))throw Error('Некорректное поле версии.');if(suffix==='treeWidth'&&(!Number.isFinite(value)||value<260||value>600))throw Error('Некорректная ширина дерева.');if(suffix.startsWith('cutoff:')&&value!==''&&day(value)==null)throw Error('Некорректная отсечка.');if(suffix.startsWith('capacity:')&&(!value||Array.isArray(value)||typeof value!=='object'||Object.values(value).some(v=>!Number.isFinite(v)||v<=0)))throw Error('Некорректная емкость.');
+   if(suffix==='plans'&&Array.isArray(value))for(const plan of value){config(plan.config);scope(plan.scope);if(!/^\d+$/.test(plan.versionId)||!['fixVersion','affectedVersion'].includes(plan.versionField))throw Error('Некорректный сохранённый план.');}
+   if(suffix.startsWith('snapshots:')&&Array.isArray(value))for(const snap of value)if(snap.schema!==1||typeof snap.signature!=='string'||!Array.isArray(snap.nodes)||snap.nodes.some(n=>!KEY.test(n?.key||'')))throw Error('Некорректный снимок.');
+   if(suffix.startsWith('scenarios:')&&Array.isArray(value))for(const scenario of value){if(typeof scenario.signature!=='string'||!scenario.edits||typeof scenario.edits!=='object')throw Error('Некорректный сценарий.');for(const [k,d]of Object.entries(scenario.edits))if(!KEY.test(k)||day(d?.start)==null||day(d?.end)==null||day(d.end)<day(d.start))throw Error('Некорректные даты сценария.');}
+if(item[0]==='plans'||/^(snapshots|scenarios):/.test(item[0])){if(!Array.isArray(value)||value.length>(item[0]==='plans'?50:20)||value.some(v=>!v||typeof v.id!=='string'||typeof v.name!=='string'))throw Error('Некорректный список сохранённых данных.');}}
+  const walk=v=>{if(v&&typeof v==='object')for(const k of Object.keys(v)){if(['__proto__','prototype','constructor'].includes(k))throw Error('Недопустимые свойства в файле.');walk(v[k]);}};walk(data.entries);return data.entries;
+ }
+ function periodLoad(model,level,mode,unit){
+  if(!['week','sprint'].includes(mode)||!['count','sp','hours'].includes(unit))throw Error('Некорректный режим периодов.');
+  const groups=new Map();let unscheduled=0;
+  for(const n of model.nodes){if(n.external||n.level!==Number(level))continue;const buckets=[];
+   if(mode==='sprint'){const segments=[...new Map(n.segments.map(s=>[s.id,s])).values()];for(const s of segments)buckets.push({id:'sprint:'+s.id,label:s.name,fraction:1/segments.length});}
+   else if(n.start!=null&&n.end!=null&&n.end>=n.start){const days=(n.end-n.start)/DAY+1;if(days>1092)throw Error('Интервал задачи больше 156 недель. Уточните даты для расчёта по неделям.');const weekday=(new Date(n.start).getUTCDay()+6)%7;for(let t=n.start-weekday*DAY;t<=n.end;t+=7*DAY){const overlap=(Math.min(n.end,t+6*DAY)-Math.max(n.start,t))/DAY+1;buckets.push({id:'week:'+date(t),label:date(t)+' — '+date(t+6*DAY),fraction:overlap/days});}}
+   if(!buckets.length){unscheduled++;continue;}const value=unit==='count'?1:estimate(n[unit==='sp'?'storyPoints':'originalHours']);
+   for(const b of buckets){const key=JSON.stringify([n.teamId,b.id]);if(!groups.has(key)&&groups.size>=10000)throw Error('Слишком много периодов и команд. Уточните область плана или даты.');if(!groups.has(key))groups.set(key,{key,period:b.id,label:b.label,team:n.team,teamId:n.teamId,amount:0,missing:0,keys:[]});const r=groups.get(key);r.keys.push(n.key);if(value==null)r.missing++;else r.amount+=value*b.fraction;}
+  }
+  return {rows:[...groups.values()].sort((a,b)=>a.period.localeCompare(b.period)||a.team.localeCompare(b.team)),unscheduled};
  }
  function capacityStatus(row,unit,capacity){
   if(!['count','sp','hours'].includes(unit)||typeof capacity!=='number'||!Number.isFinite(capacity)||capacity<=0)return 'Емкость не задана';
@@ -162,5 +184,5 @@ globalThis.JbpRoadmap = (() => {
   const plan=[];for(const [field,title]of [['cutoff','Отсечка'],['releaseDate','Дата релиза']])if(before[field]!==after[field])plan.push({field:title,before:before[field],after:after[field]});
   return {rows,plan,added:rows.filter(r=>r.kind==='added').length,removed:rows.filter(r=>r.kind==='removed').length,changed:rows.filter(r=>r.kind==='changed').length};
  }
- return {scenario,progress,capacityStatus,snapshot,compareSnapshots,riskReasons,dependencyReason,excluded,compactAI,applyCutoff,exportModel,scope,componentIds,fieldText,DAY,KEY,quote,fieldJql,defaults,config,day,date,parentRef,team,sprintIds,schedule,build};
+ return {backupSuffix,backupEntries,periodLoad,scenario,progress,capacityStatus,snapshot,compareSnapshots,riskReasons,dependencyReason,excluded,compactAI,applyCutoff,exportModel,scope,componentIds,fieldText,DAY,KEY,quote,fieldJql,defaults,config,day,date,parentRef,team,sprintIds,schedule,build};
 })();

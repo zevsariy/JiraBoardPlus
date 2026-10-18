@@ -89,3 +89,21 @@ test('local scenarios roll up dates and recalculate conflicts without mutating b
  assert.throws(()=>R.scenario(m,{'D-9':{start:'2026-10-01',end:'2026-10-02'}}),/недоступна/);assert.throws(()=>R.scenario(m,{'D-2':{start:'2026-10-03',end:'2026-10-02'}}),/обе даты/);
  const cleared=R.scenario(m,{'D-3':{start:'2026-10-11',end:'2026-10-12'}},'No overlap',R.day('2026-10-01'));assert.equal(cleared.edges[0].conflict,false);
 });
+
+test('period load conserves known estimates across weeks and sprints and reports missing schedules',()=>{
+ const n={key:'D-1',level:1,teamId:'a',team:'Alpha',start:R.day('2026-10-05'),end:R.day('2026-10-18'),storyPoints:14,segments:[{id:'1',name:'One'},{id:'2',name:'Two'}]};
+ const weeks=R.periodLoad({nodes:[n,{...n,key:'D-2',start:null,end:null,segments:[]}]},1,'week','sp');assert.equal(weeks.rows.length,2);assert.equal(weeks.rows[0].amount,7);assert.equal(weeks.unscheduled,1);
+ const sprints=R.periodLoad({nodes:[n]},1,'sprint','sp');assert.equal(sprints.rows.reduce((s,r)=>s+r.amount,0),14);assert.equal(sprints.rows[0].amount,7);
+ assert.equal(R.periodLoad({nodes:[{...n,storyPoints:null}]},1,'week','sp').rows[0].missing,1);
+});
+test('backup import validates project isolation, allowed sections and malicious properties',()=>{
+ const data={format:'jbp-roadmap-backup-v1',context:'project',entries:[['cutoff:1','2026-10-01']]};assert.equal(R.backupEntries(data,'project').length,1);assert.throws(()=>R.backupEntries(data,'other'));
+ assert.throws(()=>R.backupEntries({...data,entries:[['aiKey','secret']]},'project'));
+ assert.throws(()=>R.backupEntries({...data,entries:[['capacity:fixVersion:1',{bad:-1}]]},'project'));
+ assert.throws(()=>R.backupEntries({...data,entries:[['view',JSON.parse('{"__proto__":{}}')]]},'project'));
+});
+test('loading limit defaults to 2000 and explicitly permits 5000 while rejecting excess rows',async()=>{
+ const client=new R.Client('','https://jira.example');client.get=async()=>({startAt:0,total:5000,issues:[]});await assert.rejects(client.search('x',[]),/2000/);
+ client.issueLimit=5000;client.get=async path=>{const start=Number(new URLSearchParams(path.split('?')[1]).get('startAt'));return {startAt:start,total:5000,issues:Array.from({length:Math.min(73,5000-start)},(_,i)=>issue('D-'+(start+i+1)))};};assert.equal((await client.search('x',[])).length,5000);
+ client.get=async()=>({startAt:0,total:5001,issues:[]});await assert.rejects(client.search('x',[]),/5000/);
+});

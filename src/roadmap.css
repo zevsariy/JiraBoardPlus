@@ -57,3 +57,5 @@ body .rm-view-tabs button[aria-pressed=true]{background:var(--ui-primary);color:
 #rm-progress progress{width:90px;accent-color:var(--ui-primary)}#rm-progress input{width:130px}#rm-progress-table{overflow:auto}
 
 .rm-scenario-badge{flex-basis:100%;color:var(--ui-warning);padding:8px;border:1px solid currentColor;border-radius:8px}.rm-scenario-badge[hidden]{display:none}#rm-details fieldset label{display:block;margin:8px 0}#rm-details fieldset input{display:block}
+
+.rm-section-tabs{display:flex;gap:8px;flex-wrap:wrap;margin:16px 0;position:relative;z-index:12;background:var(--ui-bg);padding:10px 0}.rm-section-tabs [aria-selected=true]{background:var(--ui-primary);color:var(--ui-on-primary)}#rm-result>[role=tabpanel][hidden]{display:none!important}

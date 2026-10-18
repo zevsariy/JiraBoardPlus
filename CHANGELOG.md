@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.21.0 — 2026-10-18
+
+- Organize roadmap into accessible tabs and collapse setup after loading.
+- Overlay original Jira dates as dashed bars in local scenarios.
+- Add approximate workload by week or sprint with separate period capacity and explicit missing estimates.
+- Add validated, same-context backup/restore of missing local roadmap sections without overwriting existing data.
+- Keep the default 2000-issue limit and allow an explicit 5000-issue load; verify 5000 issues and 4999 dependencies using paginated Jira mocks.
+- Verify tabs, scenarios, backup and period flows in light and dark browser tests.
+
+
 ## 0.20.27 — 2026-10-18
 
 - Add local what-if date overrides from the issue inspector without writing to Jira.

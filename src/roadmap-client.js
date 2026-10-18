@@ -8,13 +8,14 @@
   async search(jql,fields,signal){
    const all=[],seen=new Set();let total;
    for(let startAt=0;;){const query=new URLSearchParams({jql,fields:fields.join(','),startAt:String(startAt),maxResults:'100'}),page=await this.get('api/2/search?'+query,signal);
-    if(!Array.isArray(page.issues)||!Number.isInteger(page.total)||page.total>2000||page.startAt!==startAt)throw Error('Нужна полная выборка не более 2000 задач. Сузьте область роадмэпа или уточните иерархию и релиз.');
+    if(!Array.isArray(page.issues)||!Number.isInteger(page.total)||page.total>(this.issueLimit||2000)||page.total<0||startAt+page.issues.length>page.total||page.startAt!==startAt)throw Error('Нужна полная выборка не более '+(this.issueLimit||2000)+' задач. Сузьте область или измените лимит загрузки.');
     if(total!==undefined&&total!==page.total)throw Error('Состав релиза изменился во время загрузки. Обновите роадмэп.');total=page.total;
     for(const issue of page.issues){if(!R.KEY.test(issue.key||'')||!issue.fields||seen.has(issue.key))throw Error('Jira вернула повторную или некорректную задачу.');all.push(issue);seen.add(issue.key);}
     startAt+=page.issues.length;if(startAt>=total)return all;if(!page.issues.length)throw Error('Jira вернула неполную страницу задач.');
    }
   }
-  async load(project,version,c,prefs,signal,progress=()=>{},componentIds=[],versionField='fixVersion'){
+  async load(project,version,c,prefs,signal,progress=()=>{},componentIds=[],versionField='fixVersion',issueLimit=2000){
+   if(![2000,5000].includes(issueLimit))throw Error('Допустимый лимит: 2000 или 5000 задач.');this.issueLimit=issueLimit;
    if(!['fixVersion','affectedVersion'].includes(versionField))throw Error('Выберите поле релиза из списка.');const scope=R.scope(componentIds);componentIds=scope.mode==='components'?scope.values:[];c=R.config(c);if(!/^\d+$/.test(String(version.id)))throw Error('Выберите релиз проекта.');
    const warnings=[],fields=[...new Set(['summary','timeoriginalestimate',c.storyPointsField,'status','issuetype','duedate','fixVersions','versions','issuelinks','parent',...c.columns,...c.dependencyColumns,...c.qualityColumns,c.rankField,c.teamField,c.startField,c.endField,c.sprintField,...c.levels.map(l=>l.parentField)].filter(Boolean))],order=` ORDER BY ${R.fieldJql(c.rankField)} ASC, key ASC`;
    const types=l=>l.types.map(R.quote).join(',');
@@ -25,7 +26,7 @@
    for(let level=1;level<c.levels.length&&previous.length;level++){
     progress(`Загрузка уровня ${level+1} из ${c.levels.length}…`);const next=[],rule=c.levels[level],parents=new Map();for(const issue of previous){parents.set(issue.key,issue.key);if(issue.id)parents.set(String(issue.id),issue.key);}
     for(let i=0;i<previous.length;i+=25){const keys=previous.slice(i,i+25).map(x=>R.quote(x.key)).join(','),rows=await this.search(`issuetype IN (${types(rule)}) AND ${R.fieldJql(rule.parentField)} IN (${keys})`+order,fields,signal);
-     for(const issue of rows){if(R.excluded(issue,c.excludeMasks))continue;const parent=parents.get(R.parentRef(issue.fields[rule.parentField]));if(!parent)throw Error(`${issue.key}: Jira не вернула ожидаемое поле родителя. Проверьте настройку связи.`);if(seen.has(issue.key))throw Error('Задача повторяется на нескольких уровнях. Проверьте иерархию.');seen.add(issue.key);next.push(issue);raw.push({issue,level,parent});if(raw.length>2000)throw Error('Более 2000 задач в иерархии. Сузьте область роадмэпа или сузьте набор типов и релиз.');}
+     for(const issue of rows){if(R.excluded(issue,c.excludeMasks))continue;const parent=parents.get(R.parentRef(issue.fields[rule.parentField]));if(!parent)throw Error(`${issue.key}: Jira не вернула ожидаемое поле родителя. Проверьте настройку связи.`);if(seen.has(issue.key))throw Error('Задача повторяется на нескольких уровнях. Проверьте иерархию.');seen.add(issue.key);next.push(issue);raw.push({issue,level,parent});if(raw.length>issueLimit)throw Error('Превышен лимит '+issueLimit+' задач в иерархии. Сузьте область роадмэпа.');}
     }previous=next;
    }
    progress('Загрузка блокирующих задач…');const blockerKeys=[...new Set(raw.flatMap(r=>(r.issue.fields.issuelinks||[]).filter(l=>String(l.type?.inward||'').trim().toLowerCase()===c.dependency.toLowerCase()).map(l=>l.inwardIssue?.key).filter(k=>R.KEY.test(k||'')&&!seen.has(k))))];
