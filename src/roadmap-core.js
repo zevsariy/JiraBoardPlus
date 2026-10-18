@@ -99,5 +99,30 @@ globalThis.JbpRoadmap = (() => {
   for(const e of m.edges){out.dependencies.push([e.from,e.to,!!e.clear,!!e.conflict,!!e.unknown]);if(JSON.stringify(out).length>185000){out.dependencies.pop();break;}}out.omittedDependencies=m.edges.length-out.dependencies.length;
   out.coverage=out.omittedIssues||out.omittedDependencies?'PARTIAL: use totals for whole scope; omitted rows cannot be assessed individually. Export JSON for full data.':'All issue and dependency rows included.';return out;
  }
- return {excluded,compactAI,applyCutoff,exportModel,scope,componentIds,fieldText,DAY,KEY,quote,fieldJql,defaults,config,day,date,parentRef,team,sprintIds,schedule,build};
+ // Explain existing risk flags without introducing a different calculation model.
+ function dependencyReason(edge,byKey){
+  const from=byKey.get(edge.from),to=byKey.get(edge.to);
+  if(edge.clear)return `Блокер ${edge.from} в статусе «${from?.status||'—'}»: он считается разблокирующим по общим настройкам.`;
+  if(edge.conflict)return `Блокер ${edge.from} заканчивается ${date(from?.end)}, а ${edge.to} начинается ${date(to?.start)}. Блокер должен закончиться раньше дня старта. До первого допустимого дня старта: ${Math.max(1,Math.floor((from.end-to.start)/DAY)+1)} календ. дн. Проверьте сроки или актуальность зависимости.`;
+  if(edge.unknown){const missing=[];if(!from)missing.push(`недоступна задача ${edge.from}`);else if(from.end==null)missing.push(`нет даты окончания ${edge.from}`);if(!to)missing.push(`недоступна задача ${edge.to}`);else if(to.start==null)missing.push(`нет даты начала ${edge.to}`);return 'Нельзя проверить зависимость: '+missing.join('; ')+'.';}
+  if(to?.done)return `Зависимая задача ${edge.to} завершена; конфликт плана не отмечается.`;
+  return `По датам конфликта нет: ${edge.from} заканчивается ${date(from?.end)}, ${edge.to} начинается ${date(to?.start)}. Блокер пока не в разблокирующем статусе.`;
+ }
+ function riskReasons(n,model){
+  const reasons=[];
+  if(n.cutoffLate)reasons.push(`Окончание ${date(n.end)} позже отсечки ${date(model.cutoff)} на ${n.cutoffLateDays} календ. дн.`);
+  if(n.cutoffOverdue)reasons.push(`Отсечка ${date(model.cutoff)} уже прошла, а задача не завершена по общим правилам статусов.`);
+  if(n.late&&n.rootDue!=null&&n.end!=null)reasons.push(`Окончание ${date(n.end)} позже Due Date фичи ${n.root} (${date(n.rootDue)}) на ${Math.ceil((n.end-n.rootDue)/DAY)} календ. дн.`);
+  if(n.overdue)reasons.push(`Due Date ${date(n.rootDue)} уже прошёл; в ветке остаются незавершённые задачи.`);
+  if(n.risk==='unknown'&&n.rootDue==null)reasons.push(`У фичи ${n.root||n.key} не задан Due Date — срок нельзя подтвердить.`);
+  if(n.cutoffRisk==='unknown'||n.risk==='unknown'){
+   const missing=[],walk=x=>{if(!x.children?.length&&x.end==null)missing.push(x.key);for(const child of x.children||[])walk(child);};walk(n);
+   if(missing.length)reasons.push(`Нет даты окончания: ${missing.slice(0,5).join(', ')}${missing.length>5?' и ещё '+(missing.length-5):''}. Известные даты остальных задач не подтверждают срок всей ветки.`);
+  }
+  if(n.noSprint)reasons.push('Задача проверяемого типа не назначена ни в один спринт. Назначьте спринт в Jira или отключите это правило для данного типа.');
+  if((n.cutoffLate||n.late)&&n.children?.length){const drivers=n.children.filter(c=>c.end===n.end);if(drivers.length)reasons.push('Окончание ветки определяют: '+drivers.slice(0,5).map(c=>c.key).join(', ')+(drivers.length>5?' и ещё '+(drivers.length-5):'')+'. Проверьте их сроки.');}
+  const byKey=new Map(model.nodes.map(x=>[x.key,x]));for(const edge of n.dependencies||[])if(edge.conflict)reasons.push(dependencyReason(edge,byKey));
+  return reasons;
+ }
+ return {riskReasons,dependencyReason,excluded,compactAI,applyCutoff,exportModel,scope,componentIds,fieldText,DAY,KEY,quote,fieldJql,defaults,config,day,date,parentRef,team,sprintIds,schedule,build};
 })();

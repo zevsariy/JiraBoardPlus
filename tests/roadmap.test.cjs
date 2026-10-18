@@ -48,3 +48,13 @@ test('scope modes constrain roots, group custom OR and retain hierarchy queries'
 });
 
 test('custom scope cannot escape outer intersection',()=>{assert.throws(()=>R.scope({mode:'jql',jql:'labels = a) OR (project = X'}));assert.equal(R.scope({mode:'jql',jql:'summary ~ \"(draft)\"'}).mode,'jql');});
+
+test('risk explanations use inclusive dependency dates, missing dates and configured cleared status',()=>{
+ const a={key:'D-1',end:R.day('2026-11-15'),status:'Done'},b={key:'D-2',start:R.day('2026-11-15')},map=new Map([[a.key,a],[b.key,b]]);
+ assert.match(R.dependencyReason({from:a.key,to:b.key,conflict:true},map),/1 календ/);
+ assert.match(R.dependencyReason({from:a.key,to:b.key,clear:true,conflict:false},map),/Done/);
+ assert.match(R.dependencyReason({from:'D-9',to:b.key,unknown:true},map),/недоступна задача D-9/);
+ const child={key:'D-3',end:R.day('2026-11-20'),children:[]},n={key:'D-1',root:'D-1',rootDue:R.day('2026-11-15'),end:child.end,late:true,cutoffLate:true,cutoffLateDays:10,children:[child],dependencies:[]};
+ const lines=R.riskReasons(n,{nodes:[n,child],cutoff:R.day('2026-11-10')}).join(' ');assert.match(lines,/10 календ/);assert.match(lines,/5 календ/);assert.match(lines,/определяют: D-3/);
+ child.end=null;n.late=false;n.cutoffLate=false;n.risk='unknown';assert.match(R.riskReasons(n,{nodes:[n,child]}).join(' '),/Нет даты окончания: D-3/);
+});

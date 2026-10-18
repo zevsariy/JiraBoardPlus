@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.20.24 — 2026-10-18
+
+- Explain roadmap risks with concrete deadline/cutoff dates, calendar-day overruns, child schedule drivers and missing end dates.
+- Show explanations in the problem table and issue inspector, with clickable issue references.
+- Explain dependency conflicts, cleared blockers and unavailable dates in the dependency table and inspector.
+- Test same-day dependency conflicts, configured cleared statuses, missing data and browser rendering.
+
+
 ## 0.20.23 — 2026-10-18
 
 - Add named local roadmap plans per Jira server/project (up to 50): create, restore, update/rename and delete.
