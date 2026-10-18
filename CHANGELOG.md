@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.24.6 — 2026-10-18
+
+- Correct embedded help: select Team from Jira field metadata instead of assuming a fixed ID.
+- Align roadmap AI help with the compact snapshot and explicit omitted-row preview.
+- Verify real Jira Team clear/save via Enter and persistence, parent fields in Kanban/backlog, Timepiece day units, and independent backlog analysis toggle.
+
 ## 0.24.5 — 2026-10-18
 
 - Stop embedded workspace keyboard events from reaching Jira shortcuts; keep workspace keyboard handlers scoped to its shadow root.
