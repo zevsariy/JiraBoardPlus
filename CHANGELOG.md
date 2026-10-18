@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.22.0 — 2026-10-18
+
+- Add a Board Plus entry in the configured Jira header, opening Metrics in an isolated Shadow DOM workspace beneath the native header.
+- Load metric modules on demand, reuse the existing metrics controller, and cancel requests/remove listeners when closing.
+- Preserve standalone pages and share dashboard preferences through a restricted background bridge; no general storage access is exposed.
+- Keep the lightweight menu registration separate from board-only enhancements.
+- Verify embedded open/close/reopen, board loading, standalone metrics and bridge authorization using mocks.
+
+
 ## 0.21.2 — 2026-10-18
 
 - Keep loaded tasks with unconfirmed parent relationships under collapsible virtual parent-type groups instead of aborting the roadmap.

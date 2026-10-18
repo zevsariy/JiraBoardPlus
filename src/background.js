@@ -9,6 +9,7 @@ function isJiraPage(url,base){return !!base && typeof url==='string' && url.star
 async function broadcastPrefs(prefs,base){if(base===undefined)base=(await read()).baseUrl;if(!base)return;const tabs=await chrome.tabs.query({url:new URL(base).origin+'/*'});await Promise.allSettled(tabs.filter(t=>isJiraPage(t.url,base)).map(t=>chrome.tabs.sendMessage(t.id,{type:'boardPrefsChanged',prefs})));}
 async function syncContent(){
   if(!chrome.scripting)return;
+  await syncEmbedded();
   const base=JbpConnection.from(await read()).baseUrl,registered=await chrome.scripting.getRegisteredContentScripts({ids:['jbp-jira']});
   const permitted=base&&await chrome.permissions.contains({origins:[new URL(base).origin+'/*']});
   const matches=permitted?[base+'/secure/RapidBoard.jspa*',base+'/browse/*']:[];
@@ -160,6 +161,7 @@ async function command(message) {
   return state;
 }
 chrome.runtime.onMessage.addListener((message, sender, reply) => {
+  if(['embeddedOpen','embeddedConnection','embeddedStore','embeddedPage'].includes(message.type)){embeddedMessage(message,sender).then(data=>reply({ok:true,data}),error=>reply({ok:false,error:error.message}));return true;}
   if(['aiGet','aiSave','aiAnalyze','aiCancel','aiBoardData'].includes(message.type)){aiMessage(message,sender).then(data=>reply({ok:true,data}),e=>reply({ok:false,error:e.message}));return true;}
   if(sender.id===chrome.runtime.id && message.type==='privateNotes'){
     serial(async()=>{
@@ -270,3 +272,24 @@ chrome.notifications.onClicked.addListener(id => { if (id.startsWith('jbp:')) { 
 serial(arm).catch(console.error);
 
 importScripts('ai-worker.js');
+
+async function syncEmbedded(){
+ const base=JbpConnection.from(await read()).baseUrl,allowed=base&&await chrome.permissions.contains({origins:[new URL(base).origin+'/*']}),matches=allowed?[base+'/*']:[],old=await chrome.scripting.getRegisteredContentScripts({ids:['jbp-shell']});
+ if(old.length&&JSON.stringify(old[0].matches)===JSON.stringify(matches))return;
+ if(old.length)await chrome.scripting.unregisterContentScripts({ids:['jbp-shell']});
+ if(allowed)await chrome.scripting.registerContentScripts([{id:'jbp-shell',matches,js:['src/jira-shell.js'],runAt:'document_idle',persistAcrossSessions:true}]);
+}
+async function embeddedMessage(message,sender){
+ const connection=JbpConnection.from(await read());if(sender.id!==chrome.runtime.id||!sender.tab?.id||sender.frameId!==0||!isJiraPage(sender.url,connection.baseUrl))throw Error('Недопустимая страница Jira.');
+ if(message.type==='embeddedConnection')return connection;
+ if(message.type==='embeddedPage'){if(!['metrics.html','settings.html','help.html','onboarding.html'].includes(message.page))throw Error('Недопустимая страница.');await chrome.tabs.create({url:chrome.runtime.getURL(message.page)});return true;}
+ if(message.type==='embeddedStore'){
+  if(message.op==='get'&&message.key==='jbpBoardPrefs')return {jbpBoardPrefs:{...JbpBoard.defaults,...(await chrome.storage.local.get('jbpBoardPrefs')).jbpBoardPrefs}};
+  const prefix='jbpDashboard:'+encodeURIComponent(connection.baseUrl)+':';if(typeof message.key!=='string'||!message.key.startsWith(prefix)||message.key.length>500)throw Error('Недопустимый раздел настроек.');
+  if(message.op==='get')return chrome.storage.local.get(message.key);
+  if(message.op!=='set'||!message.value||typeof message.value!=='object'||JSON.stringify(message.value).length>20000)throw Error('Некорректные настройки.');await chrome.storage.local.set({[message.key]:message.value});return true;
+ }
+ const modules=[['JbpUI','src/ui-theme.js'],['JbpBoard','src/board-core.js'],['JbpSprint','src/sprint-core.js'],['JbpSprint.Client','src/sprint-client.js'],['marked','src/vendor/marked.umd.js'],['JbpMarkdown','src/ai-markdown.js'],['JbpAIUI','src/ai-ui.js'],['JbpSprint.mount','src/sprint-ui.js'],['JbpSearchPicker','src/search-picker.js'],['JbpDashboard','src/dashboard-core.js'],['JbpDashboard.load','src/dashboard-client.js'],['JbpCharts','src/dashboard-charts.js'],['JbpDashboard.mount','src/dashboard-ui.js'],['JbpMetricsMount','src/metrics.js']];
+ for(const [name,file] of modules){const [r]=await chrome.scripting.executeScript({target:{tabId:sender.tab.id},func:path=>{let v=globalThis;for(const part of path.split('.'))v=v?.[part];return !!v;},args:[name]});if(!r?.result)await chrome.scripting.executeScript({target:{tabId:sender.tab.id},files:[file]});}
+ const html=await (await fetch(chrome.runtime.getURL('metrics.html'))).text();const css=await Promise.all(['report','brand','dashboard','ui-tokens','ui-pages'].map(async n=>(await fetch(chrome.runtime.getURL('src/'+n+'.css'))).text()));return {html,css:css.join('\n')};
+}

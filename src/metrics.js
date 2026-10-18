@@ -1,7 +1,7 @@
-(() => {
+globalThis.JbpMetricsMount = function(document, options={}) {
   const $=id=>document.getElementById(id),root=$('metrics').attachShadow({mode:'open'});
-  let connection,client,board,sprint,dispose,boardsAbort,sprintsAbort,revision=0,boardRevision=0,retry,dashboardDispose;
-  const params=new URLSearchParams(location.search);let initialBoard=params.get('board');
+  let disposed=false,connection,client,board,sprint,dispose,boardsAbort,sprintsAbort,revision=0,boardRevision=0,retry,dashboardDispose;
+  const params=new URLSearchParams(options.search??location.search);let initialBoard=params.get('board');
   function message(text=''){$('message').hidden=!text;$('message-text').textContent=text;}
   $('dismiss-message').onclick=()=>message();
   function showView(report=false){$('dashboard').hidden=report;$('metrics').hidden=!report;$('view-dashboard').setAttribute('aria-pressed',String(!report));$('view-sprint').setAttribute('aria-pressed',String(report));}
@@ -16,7 +16,7 @@
     $('metrics-mode-label').hidden=false;if(!keepMode)$('metrics-mode').value='auto';
     const mode=$('metrics-mode').value==='auto'?item.type:$('metrics-mode').value;
     $('sprint-picker').hidden=mode==='kanban';
-    dashboardDispose=JbpDashboard.mount($('dashboard'),{client,board:item,mode,getSprints:signal=>item.type==='kanban'?Promise.resolve([]):client.sprints(item.id,signal)});
+    dashboardDispose=JbpDashboard.mount($('dashboard'),{client,board:item,mode,store:options.store,getSprints:signal=>item.type==='kanban'?Promise.resolve([]):client.sprints(item.id,signal)});
     if(mode==='kanban'||item.type==='kanban'){sprintPicker.set([],'У Kanban-доски нет спринтов');$('list-status').textContent=mode==='kanban'?'Kanban: выберите период анализа в обзоре.':'Эта доска не предоставляет спринты Jira; доступен общий обзор.';return;}
 
     const seq=boardRevision,configRevision=revision; sprintsAbort=new AbortController();
@@ -43,10 +43,12 @@
   $('metrics-mode').onchange=()=>{if(board)selectBoard(board,true);};
   $('retry-list').onclick=()=>retry?.();
   async function settings(){
-    try{const res=await chrome.runtime.sendMessage({type:'connectionGet'});if(!res?.ok)throw new Error(res?.error||'Настройки недоступны');const next=res.data;if(connection&&connection.baseUrl===next.baseUrl&&connection.project===next.project)return;
+    try{const res=await chrome.runtime.sendMessage({type:options.embedded?'embeddedConnection':'connectionGet'});if(!res?.ok)throw new Error(res?.error||'Настройки недоступны');const next=res.data;if(disposed)return;if(connection&&connection.baseUrl===next.baseUrl&&connection.project===next.project)return;
       connection=next;if(!connection.baseUrl){message('Укажите адрес Jira в настройках или мастере.');boardPicker.set([],'Сначала настройте Jira');return;}client=new JbpSprint.Client('',connection.baseUrl);$('connection-info').textContent=`Jira: ${connection.baseUrl} · Проект: ${connection.project||'не задан'}`;await loadBoards();
     }catch(e){failure(e,settings);}
   }
-  chrome.storage.onChanged.addListener((changes,area)=>{if(area==='local'&&changes.jbpReportsV1)settings();});
+  const changed=(changes,area)=>{if(area==='local'&&changes.jbpReportsV1)settings();};chrome.storage.onChanged.addListener(changed);
   settings();
-})();
+  return ()=>{disposed=true;revision++;boardRevision++;boardsAbort?.abort();sprintsAbort?.abort();dispose?.();dashboardDispose?.();chrome.storage.onChanged.removeListener(changed);};
+};
+if(!globalThis.jbpShellInstalled)JbpMetricsMount(document);
