@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.20.17 — 2026-10-18
+
+- Respect hidden component controls for non-component roadmap scopes.
+- Fill wide timeline viewports, compact rows with room for warnings and wrap issue titles to two lines.
+- Group view, display, hierarchy and export/AI controls; clarify inherited feature Due Date.
+
+
 ## 0.20.16 — 2026-10-18
 
 - Add roadmap root scope: components, labels, favourite Jira filters, custom JQL or the whole project; preserve descendant traversal.
