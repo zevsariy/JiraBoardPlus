@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.20.14 — 2026-10-18
+
+- Load Jira fields automatically in settings and offer Team candidates with searchable names and IDs.
+- Accept unique exact names or manual IDs; reject ambiguous names and preserve the configured selection.
+
 ## 0.20.13 — 2026-10-18
 
 - Organize team dashboard filters into period/selection and calculation parameter groups.
