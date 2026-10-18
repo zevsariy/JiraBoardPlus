@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.21.2 — 2026-10-18
+
+- Keep loaded tasks with unconfirmed parent relationships under collapsible virtual parent-type groups instead of aborting the roadmap.
+- Preserve descendants, issue links and data-quality warnings; virtual headings do not enter issue metrics or exports as fake issues.
+- Continue rejecting ambiguous relationships and retain exact-parent verification.
+
+
 ## 0.21.1 — 2026-10-18
 
 - Recover hierarchy links when Jira search omits or cannot serialize the configured parent field, including Epic Link.
