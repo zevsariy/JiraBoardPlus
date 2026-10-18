@@ -12,3 +12,13 @@ test('sprint client paginates server-capped lists and rejects incomplete lists',
  c.get=async()=>({startAt:0,values:[],isLast:false});await assert.rejects(c.sprints('1'),/полный список/);
  c.get=async()=>({startAt:5,values:[],isLast:true});await assert.rejects(c.boards('DEMO'),/формат/);
 });
+
+test('client reports Jira query errors separately from login failures and bounds details',async t=>{
+ const c=new JbpSprint.Client('','https://jira.example');
+ t.mock.method(globalThis,'fetch',async()=>new Response(JSON.stringify({errorMessages:['Invalid JQL'],errors:{field:'Unknown field'}}),{status:400}));
+ await assert.rejects(c.get('api/2/search'),e=>e.message.includes('Invalid JQL')&&e.message.includes('Unknown field')&&!e.message.includes('сессию'));
+ globalThis.fetch=async()=>new Response('<html>login</html>',{status:401});
+ await assert.rejects(c.get('api/2/search'),/Войдите в Jira/);
+ globalThis.fetch=async()=>new Response(JSON.stringify({errorMessages:['x'.repeat(10000)]}),{status:400});
+ await assert.rejects(c.get('api/2/search'),e=>e.message.length<1700);
+});

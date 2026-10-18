@@ -22,7 +22,16 @@
     }
     async get(path, signal) {
       const res = await fetch(`${this.baseUrl}/rest/${path}`, { credentials: 'include', redirect: 'error', cache: 'no-store', headers: { Accept: 'application/json' }, signal: signal ? AbortSignal.any([signal, AbortSignal.timeout(15000)]) : AbortSignal.timeout(15000) });
-      if (!res.ok) throw new Error(`HTTP ${res.status}: проверьте доступ к Jira и сессию входа.`);
+      if (!res.ok) {
+        let detail = '';
+        try {
+          const data = await res.json();
+          const messages = [...(Array.isArray(data.errorMessages) ? data.errorMessages : []), ...Object.values(data.errors || {})];
+          detail = messages.filter(v => typeof v === 'string').join(' ').slice(0, 1500);
+        } catch {}
+        const hints = {400:'Проверьте JQL и параметры запроса.',401:'Войдите в Jira в этом профиле Chrome.',403:'Нет доступа к данным Jira. Проверьте права.',404:'Запрошенные данные или API Jira не найдены.',429:'Лимит запросов Jira. Повторите позже.'};
+        throw new Error(`HTTP ${res.status}: ${hints[res.status] || 'Ошибка Jira. Повторите позже.'}${detail ? ' ' + detail : ''}`);
+      }
       if (!res.headers.get('content-type')?.includes('application/json')) throw new Error('Вместо JSON получена страница входа Jira.');
       return res.json();
     }

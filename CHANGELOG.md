@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.24.8 — 2026-10-18
+
+- Show Jira validation details for invalid roadmap JQL instead of suggesting a login problem for every HTTP error.
+- Distinguish authentication, permissions, missing API and rate-limit failures; cap server error details.
+- Verify root-only JQL scope on real Jira and add regression coverage for query errors and non-JSON failures.
+
 ## 0.24.7 — 2026-10-18
 
 - Correct the AI modal disclosure: roadmap analysis sends a compact snapshot without issue summaries or extra fields.
