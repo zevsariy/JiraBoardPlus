@@ -23,6 +23,10 @@ const {chromium}=require('playwright'),path=require('node:path'),fs=require('nod
  assert.equal(await page.evaluate(()=>testRoot.querySelector('#answer ol').start),3);assert.equal(await page.evaluate(()=>testRoot.querySelector('#answer code').textContent),'&amp;');assert.equal(await page.evaluate(()=>testRoot.querySelectorAll('#answer input:disabled').length),2);assert.equal(await page.evaluate(()=>testRoot.querySelector('#answer del').textContent),'Removed');
  await page.evaluate(()=>testRoot.getElementById('close').click());assert.deepEqual(errors,[]);
 
+ await page.evaluate(()=>JbpAIUI.open('roadmap',()=>({nodes:[]})));
+ assert.match(await page.evaluate(()=>testRoot.textContent),/компактный снимок без названий задач и дополнительных полей/);
+ assert.doesNotMatch(await page.evaluate(()=>testRoot.textContent),/передаются также выбранные/);
+ await page.evaluate(()=>testRoot.getElementById('close').click());
  const board=await context.newPage();await board.route('https://jira.example/**',r=>r.fulfill({contentType:'text/html',body:'<meta charset="utf-8"><div class="ghx-issue" data-issue-key="DEMO-1">Task</div><div style="display:none" class="ghx-issue" data-issue-key="DEMO-2">Hidden</div>'}));
  await board.goto('https://jira.example/secure/RapidBoard.jspa?view=work&rapidView=1');
  await board.evaluate(()=>{const original=Element.prototype.attachShadow;globalThis.roots=[];Element.prototype.attachShadow=function(o){const r=original.call(this,o);roots.push(r);return r;};globalThis.chrome={runtime:{onMessage:{addListener(f){globalThis.changePrefs=f;}},sendMessage:async m=>{if(m.type==='aiGet')return{ok:true,data:{enabled:true,board:true,endpoint:'https://llm.example/v1',model:'demo'}};if(m.type==='boardPrefsGet')return{ok:true,data:{visuals:true}};if(m.type==='aiBoardData'){globalThis.sentKeys=m.keys;return{ok:true,data:{issues:m.keys.map(key=>({key}))}};}}}};});

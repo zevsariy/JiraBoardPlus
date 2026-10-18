@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.24.7 — 2026-10-18
+
+- Correct the AI modal disclosure: roadmap analysis sends a compact snapshot without issue summaries or extra fields.
+- Add browser coverage for the roadmap-specific disclosure; retain explicit-send and Markdown rendering checks.
+
 ## 0.24.6 — 2026-10-18
 
 - Correct embedded help: select Team from Jira field metadata instead of assuming a fixed ID.
