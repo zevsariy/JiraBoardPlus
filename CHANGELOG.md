@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.22.1 — 2026-10-18
+
+- Apply the Jira/AUI theme consistently to the embedded metrics shell and nested reports, including entry from Dashboard pages.
+- Remove the fixed white workspace background; follow Jira surface tokens with a light Server fallback regardless of the OS theme.
+- Add browser regression checks for shell, settings and nested theme under a dark OS preference.
+
+
 ## 0.22.0 — 2026-10-18
 
 - Add a Board Plus entry in the configured Jira header, opening Metrics in an isolated Shadow DOM workspace beneath the native header.
