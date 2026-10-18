@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.20.11 — 2026-10-18
+
+- Align sprint assignee, issue type and percentile filters in a responsive grid with labels above inputs and actions below lists.
+- Use evenly sized metric tiles and stack filters in narrow panels.
+- Align export labels and controls without changing Jira-native styling or report behavior.
+
 ## 0.20.10 — 2026-10-18
 
 - Clarify that the full JQL notification mode covers new issues, departed issues and changed column values.

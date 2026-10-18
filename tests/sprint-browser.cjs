@@ -14,6 +14,11 @@ else throw new Error(`Unexpected path ${u.pathname}`);await route.fulfill({conte
 await page.goto('http://127.0.0.1/secure/RapidBoard.jspa?rapidView=7&view=reporting&chart=sprintRetrospective&sprint=12');
 for(const file of ['ui-theme.js','jira-theme.js','board-core.js','sprint-core.js','sprint-client.js','vendor/marked.umd.js','ai-markdown.js','ai-ui.js','sprint-ui.js','sprint-report.js'])await page.addScriptTag({content:fs.readFileSync(path.join(__dirname,'../src',file),'utf8').replaceAll('https://jira.example.com','http://127.0.0.1').replaceAll("location.protocol!=='https:'","location.protocol!=='http:'").replaceAll("location?.protocol==='https:'","location?.protocol==='http:'").replace("u.protocol!=='https:'","u.protocol!=='http:'")});
 await page.locator('[data-jbp-sprint] #load').click();await page.locator('[data-jbp-sprint] #meta').filter({hasText:'(SP)'}).waitFor();
+const filterBoxes=await Promise.all(['assignees','types','percentile'].map(id=>page.locator('[data-jbp-sprint] #'+id).boundingBox()));
+assert.ok(Math.abs(filterBoxes[0].y-filterBoxes[1].y)<2);assert.ok(Math.abs(filterBoxes[1].y-filterBoxes[2].y)<2);
+assert.ok(filterBoxes[0].x+filterBoxes[0].width<=filterBoxes[1].x);
+const tiles=await page.locator('[data-jbp-sprint] #stats .stat').evaluateAll(es=>es.map(e=>e.getBoundingClientRect().width));assert.ok(Math.max(...tiles)-Math.min(...tiles)<2);
+fs.mkdirSync(path.join(__dirname,'../test-output'),{recursive:true});await page.screenshot({path:path.join(__dirname,'../test-output/sprint-aligned-wide.png'),fullPage:true});
 assert.equal(await page.locator('[data-jbp-sprint-export]').count(),0);
 assert.equal(await page.locator('[data-jbp-sprint] #workStatuses').count(),0);assert.equal(await page.locator('[data-jbp-sprint] #doneStatuses').count(),0);assert.equal(await page.locator('[data-jbp-sprint] #export-block #export').count(),1);assert.equal(await page.locator('[data-jbp-sprint] #export-block #format').count(),1);assert.equal(await page.getByRole('button',{name:'Выгрузить для ИИ',exact:true}).count(),1);
 assert.equal(await page.locator('[data-jbp-sprint] #snapshots').count(),0);await page.locator('[data-jbp-sprint] #saved option').filter({hasText:'Снимков пока нет'}).waitFor({state:'attached'});
