@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.20.13 — 2026-10-18
+
+- Organize team dashboard filters into period/selection and calculation parameter groups.
+- Align board, mode and sprint selectors and responsive control grids in both themes.
+
 ## 0.20.12 — 2026-10-18
 
 - Group sprint metrics into scope, plan completion, estimates, and cycle time/reopens sections with responsive tile grids.
