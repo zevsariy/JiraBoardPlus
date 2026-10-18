@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.20.22 — 2026-10-18
+
+- Build dependency graph on demand instead of while the Gantt tab is active.
+- Paginate problem, dependency and quality tables at 50 rows, retaining full-plan counts and exports.
+- Index dependency lookups and conflict membership to avoid repeated issue scans.
+- Verify a full mocked 2000-issue load with server-capped pagination and 1999 dependencies, plus the existing 5000-row Gantt fixture in both themes.
+- Retain the 2000-issue loading and 250-node graph limits.
+
+
 ## 0.20.21 — 2026-10-18
 
 - Restrict injected Jira scripts to RapidBoard and issue browse routes instead of the whole configured Jira site.
