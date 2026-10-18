@@ -2,6 +2,15 @@ globalThis.JbpRoadmap = (() => {
  const DAY=86400000,KEY=/^[A-Z][A-Z0-9_]*-\d+$/i,FIELD=/^customfield_\d+$/;
  const quote=v=>'"'+String(v).replace(/\\/g,'\\\\').replace(/"/g,'\\"')+'"';
  const fieldJql=id=>id==='parent'?'parent':FIELD.test(id)?`cf[${id.slice(12)}]`:(()=>{throw Error('Некорректное поле связи.');})();
+ function scope(value){
+  const v=Array.isArray(value)?{mode:'components',values:value}:value||{},mode=v.mode;
+  if(mode==='components'){const values=componentIds(v.values);return {mode,values,jql:'component IN ('+values.join(',')+')'};}
+  if(mode==='project')return {mode,jql:''};
+  if(mode==='labels'){const values=[...new Set((v.values||[]).map(x=>String(x).trim()).filter(Boolean))];if(!values.length||values.length>100)throw Error('Укажите от 1 до 100 меток через запятую.');return {mode,values,jql:'labels IN ('+values.map(quote).join(',')+')'};}
+  if(mode==='filter'){if(!/^\d+$/.test(String(v.id||'')))throw Error('Выберите сохранённый фильтр Jira.');return {mode,id:String(v.id),jql:'filter = '+v.id};}
+  if(mode==='jql'){const jql=String(v.jql||'').trim();if(!jql||jql.length>10000||/\border\s+by\b/i.test(jql))throw Error('Укажите условие JQL без ORDER BY (до 10 000 символов).');let depth=0,quoted='',escaped=false;for(const ch of jql){if(escaped){escaped=false;continue;}if(ch==='\\'){escaped=true;continue;}if(quoted){if(ch===quoted)quoted='';continue;}if(ch==='\"'||ch==="'"){quoted=ch;continue;}if(ch==='(')depth++;if(ch===')'&&--depth<0)throw Error('Проверьте скобки в JQL.');}if(depth||quoted)throw Error('Проверьте скобки и кавычки в JQL.');return {mode,jql};}
+  throw Error('Выберите способ отбора задач.');
+ }
  function componentIds(values){if(!Array.isArray(values)||!values.length)throw Error('Сначала выберите хотя бы один компонент Component/s.');if(values.some(v=>!/^\d+$/.test(String(v))))throw Error('Выберите компоненты из списка проекта.');const ids=[...new Set(values.map(String))];if(ids.length>100)throw Error('Можно выбрать не более 100 компонентов.');return ids;}
  function defaults(fields,types){
   const find=(...names)=>{const found=fields.filter(f=>names.some(n=>f.name.toLowerCase()===n.toLowerCase()));return found.length===1?found[0].id:'';};
@@ -90,5 +99,5 @@ globalThis.JbpRoadmap = (() => {
   for(const e of m.edges){out.dependencies.push([e.from,e.to,!!e.clear,!!e.conflict,!!e.unknown]);if(JSON.stringify(out).length>185000){out.dependencies.pop();break;}}out.omittedDependencies=m.edges.length-out.dependencies.length;
   out.coverage=out.omittedIssues||out.omittedDependencies?'PARTIAL: use totals for whole scope; omitted rows cannot be assessed individually. Export JSON for full data.':'All issue and dependency rows included.';return out;
  }
- return {excluded,compactAI,applyCutoff,exportModel,componentIds,fieldText,DAY,KEY,quote,fieldJql,defaults,config,day,date,parentRef,team,sprintIds,schedule,build};
+ return {excluded,compactAI,applyCutoff,exportModel,scope,componentIds,fieldText,DAY,KEY,quote,fieldJql,defaults,config,day,date,parentRef,team,sprintIds,schedule,build};
 })();

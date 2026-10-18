@@ -34,3 +34,5 @@ body[data-ui-page=metrics] .metric-selectors>label,body[data-ui-page=metrics] .m
 .flow-dashboard .flow-detail>div{overflow-x:auto}
 .metric-view-switch{display:flex;gap:8px;margin:16px 0;flex-wrap:wrap}
 .metric-view-switch button[aria-pressed=true]{border-color:var(--ui-primary);font-weight:700}
+
+.rm-config-group{border:1px solid var(--ui-line);border-radius:12px;margin:12px 0;padding:12px 16px}.rm-config-group>summary{font-size:16px}

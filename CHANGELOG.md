@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.20.16 — 2026-10-18
+
+- Add roadmap root scope: components, labels, favourite Jira filters, custom JQL or the whole project; preserve descendant traversal.
+- Build explicitly after selecting scope/release and hide stale results when parameters change.
+- Group hierarchy, dates/teams, columns and validation settings into disclosures; document scope rules.
+
+
 ## 0.20.15 — 2026-10-18
 
 - Group metrics into current board, period results, completion time and Scrum trends with plain-language guidance.
