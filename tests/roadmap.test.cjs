@@ -68,3 +68,15 @@ test('snapshots compare stable fields, membership and plan dates, rejecting diff
  m.selection.values.reverse();assert.equal(R.snapshot(m).signature,after.signature);m.selection.values=['c'];assert.throws(()=>R.compareSnapshots(before,R.snapshot(m)),/Область/);
  assert.equal(before.nodes.find(n=>n.key==='D-1').status,'Doing');
 });
+
+test('progress separates hierarchy levels, teams and units, preserves zero and missing estimates',()=>{
+ const nodes=[{level:0,teamId:'a',team:'Alpha',done:true,storyPoints:100,originalHours:100},
+ {level:1,teamId:'a',team:'Alpha',done:true,storyPoints:0,originalHours:2},
+ {level:1,teamId:'a',team:'Alpha',done:false,storyPoints:5,originalHours:null},
+ {level:1,teamId:'a',team:'Alpha',done:false,storyPoints:null,originalHours:3},
+ {level:1,teamId:'b',team:'Beta',done:true,storyPoints:8,originalHours:4},
+ {level:1,teamId:'a',team:'Alpha',external:true,done:false,storyPoints:100,originalHours:100}];
+ const [a,b]=R.progress({nodes},1);assert.deepEqual([a.count,a.done,a.sp,a.spDone,a.spMissing,a.hours,a.hoursDone,a.hoursMissing],[3,1,5,0,1,5,2,1]);assert.equal(b.sp,8);
+ assert.match(R.capacityStatus(a,'sp',10),/Нельзя подтвердить/);assert.match(R.capacityStatus(a,'sp',4),/минимум/);assert.match(R.capacityStatus(a,'count',3),/100%/);assert.match(R.capacityStatus(a,'hours',0),/не задана/);
+ const i=issue('D-1');i.fields.timeoriginalestimate=7200;i.fields.customfield_8=3;const cfg=R.config({...c,storyPointsField:'customfield_8'}),n=R.build([{issue:i,level:0}],cfg,prefs).nodes[0];assert.equal(n.originalHours,2);assert.equal(n.storyPoints,3);
+});

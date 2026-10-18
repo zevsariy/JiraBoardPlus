@@ -15,7 +15,7 @@ globalThis.JbpRoadmap = (() => {
  function defaults(fields,types){
   const find=(...names)=>{const found=fields.filter(f=>names.some(n=>f.name.toLowerCase()===n.toLowerCase()));return found.length===1?found[0].id:'';};
   const type=name=>types.filter(t=>t.name.toLowerCase()===name.toLowerCase()).map(t=>String(t.id));
-  return {levels:[{types:type('Component'),parentField:''},{types:type('Epic'),parentField:find('Parent Link')},{types:type('Task'),parentField:find('Epic Link')}],rankField:find('Rank'),teamField:fields.some(f=>f.id==='customfield_10200')?'customfield_10200':find('Team'),startField:find('Target start'),endField:find('Target end'),sprintField:find('Sprint'),dateMode:'targets',dependency:'is blocked by'};
+  return {levels:[{types:type('Component'),parentField:''},{types:type('Epic'),parentField:find('Parent Link')},{types:type('Task'),parentField:find('Epic Link')}],rankField:find('Rank'),teamField:fields.some(f=>f.id==='customfield_10200')?'customfield_10200':find('Team'),startField:find('Target start'),endField:find('Target end'),sprintField:find('Sprint'),storyPointsField:find('Story Points','Story points'),dateMode:'targets',dependency:'is blocked by'};
  }
  function config(raw){
   if(!Array.isArray(raw.levels)||!raw.levels.length||raw.levels.length>6)throw Error('Настройте от 1 до 6 уровней иерархии.');
@@ -25,7 +25,7 @@ globalThis.JbpRoadmap = (() => {
    if(i&&l.parentField!=='parent'&&!FIELD.test(l.parentField||''))throw Error(`Выберите поле родителя для уровня ${i+1}.`);
    const color=l.color||['#148a96','#7566bb','#3f80bf','#ad7532','#ad5280','#598642'][i];if(!/^#[0-9a-f]{6}$/i.test(color))throw Error('Выберите цвет уровня.');return {types,parentField:i?l.parentField:'',color};
   });
-  const c={levels};c.excludeMasks=String(raw.excludeMasks||'').trim();if(c.excludeMasks.length>2000)throw Error('Маски: до 2000 символов.');for(const k of ['dependencyColumns','qualityColumns'])c[k]=[...new Set(Array.isArray(raw[k])?raw[k]:[])].filter(id=>/^[a-zA-Z][a-zA-Z0-9_]*$/.test(id)).slice(0,15);for(const k of ['rankField','teamField','startField','endField','sprintField']){const v=raw[k]||'';if(v&&!FIELD.test(v))throw Error('Выберите поле Jira из справочника.');c[k]=v;}
+  const c={levels};c.excludeMasks=String(raw.excludeMasks||'').trim();if(c.excludeMasks.length>2000)throw Error('Маски: до 2000 символов.');for(const k of ['dependencyColumns','qualityColumns'])c[k]=[...new Set(Array.isArray(raw[k])?raw[k]:[])].filter(id=>/^[a-zA-Z][a-zA-Z0-9_]*$/.test(id)).slice(0,15);for(const k of ['rankField','teamField','startField','endField','sprintField','storyPointsField']){const v=raw[k]||'';if(v&&!FIELD.test(v))throw Error('Выберите поле Jira из справочника.');c[k]=v;}
   if(!c.rankField)throw Error('Выберите поле Rank для порядка элементов.');
   if(!c.teamField)throw Error('Выберите поле Team для разделения по командам.');
   if(!!c.startField!==!!c.endField)throw Error('Задайте оба поля Target Start / Target End либо оставьте оба пустыми.');
@@ -60,7 +60,7 @@ globalThis.JbpRoadmap = (() => {
  function build(raw,c,prefs,sprints={},teams={},version={},now=Date.now()){
   const byKey=new Map(),nodes=raw.map(item=>{
    const f=item.issue.fields,t=team(f[c.teamField]),plan=schedule(item.issue,c,sprints);
-   const n={key:item.issue.key,id:String(item.issue.id),parent:item.parent||'',level:item.level,external:!!item.external,summary:f.summary||'',type:f.issuetype?.name||'',status:f.status?.name||'Неизвестно',done:JbpBoard.isDone(f.status,prefs),teamId:t.id,team:teams[t.id]||t.name,due:day(f.duedate),fixVersions:(f.fixVersions||[]).map(v=>({id:String(v.id),name:v.name})),affectedVersions:(f.versions||[]).map(v=>({id:String(v.id),name:v.name})),...plan,ownStart:plan.start,ownEnd:plan.end,children:[],dependencies:[],rank:f[c.rankField]??null,extraFields:Object.fromEntries([...new Set([...(c.columns||[]),...(c.dependencyColumns||[]),...(c.qualityColumns||[])])].map(id=>[id,{available:['key','issuekey','id'].includes(id)||Object.hasOwn(f,id),value:fieldText(id==='key'||id==='issuekey'?item.issue.key:id==='id'?item.issue.id:f[id])}])),noSprint:!item.external&&c.noSprint&&(c.noSprintTypes||[]).includes(String(f.issuetype?.id))&&!JbpBoard.isDone(f.status,prefs)&&Object.hasOwn(f,c.sprintField)&&!sprintIds(f[c.sprintField]).length};
+   const n={key:item.issue.key,id:String(item.issue.id),parent:item.parent||'',level:item.level,external:!!item.external,summary:f.summary||'',type:f.issuetype?.name||'',status:f.status?.name||'Неизвестно',storyPoints:estimate(c.storyPointsField?f[c.storyPointsField]:null),originalHours:estimate(f.timeoriginalestimate)==null?null:estimate(f.timeoriginalestimate)/3600,done:JbpBoard.isDone(f.status,prefs),teamId:t.id,team:teams[t.id]||t.name,due:day(f.duedate),fixVersions:(f.fixVersions||[]).map(v=>({id:String(v.id),name:v.name})),affectedVersions:(f.versions||[]).map(v=>({id:String(v.id),name:v.name})),...plan,ownStart:plan.start,ownEnd:plan.end,children:[],dependencies:[],rank:f[c.rankField]??null,extraFields:Object.fromEntries([...new Set([...(c.columns||[]),...(c.dependencyColumns||[]),...(c.qualityColumns||[])])].map(id=>[id,{available:['key','issuekey','id'].includes(id)||Object.hasOwn(f,id),value:fieldText(id==='key'||id==='issuekey'?item.issue.key:id==='id'?item.issue.id:f[id])}])),noSprint:!item.external&&c.noSprint&&(c.noSprintTypes||[]).includes(String(f.issuetype?.id))&&!JbpBoard.isDone(f.status,prefs)&&Object.hasOwn(f,c.sprintField)&&!sprintIds(f[c.sprintField]).length};
    if(!item.external&&c.noSprint&&(c.noSprintTypes||[]).includes(String(f.issuetype?.id))&&!Object.hasOwn(f,c.sprintField))n.warnings.push('Поле Sprint недоступно: назначение неизвестно');if(n.noSprint)n.warnings.push('Не назначен спринт');
    if(!Object.hasOwn(f,c.teamField))n.warnings.push('Поле Team недоступно');
    if(c.startField&&(!Object.hasOwn(f,c.startField)||!Object.hasOwn(f,c.endField)))n.warnings.push('Целевые поля недоступны');
@@ -124,6 +124,18 @@ globalThis.JbpRoadmap = (() => {
   const byKey=new Map(model.nodes.map(x=>[x.key,x]));for(const edge of n.dependencies||[])if(edge.conflict)reasons.push(dependencyReason(edge,byKey));
   return reasons;
  }
+ function estimate(value){return typeof value==='number'&&Number.isFinite(value)&&value>=0?value:null;}
+ function progress(model,level){
+  const rows=new Map();for(const n of model.nodes){if(n.external||n.level!==Number(level))continue;const id=n.teamId||'';if(!rows.has(id))rows.set(id,{id,team:n.team,count:0,done:0,sp:0,spDone:0,spMissing:0,hours:0,hoursDone:0,hoursMissing:0});const r=rows.get(id);r.count++;if(n.done)r.done++;for(const [field,unit]of [['storyPoints','sp'],['originalHours','hours']]){const value=estimate(n[field]);if(value==null)r[unit+'Missing']++;else{r[unit]+=value;if(n.done)r[unit+'Done']+=value;}}}
+  return [...rows.values()].sort((a,b)=>a.team.localeCompare(b.team));
+ }
+ function capacityStatus(row,unit,capacity){
+  if(!['count','sp','hours'].includes(unit)||typeof capacity!=='number'||!Number.isFinite(capacity)||capacity<=0)return 'Емкость не задана';
+  const value=row[unit],missing=unit==='count'?0:row[unit+'Missing'];
+  if(value>capacity)return `Превышение${missing?' минимум':''}: ${Math.round((value-capacity)*100)/100} (${Math.round(value/capacity*100)}%${missing?' или больше':''})`;
+  if(missing)return 'Нельзя подтвердить: есть задачи без оценки';
+  return `${Math.round(value/capacity*100)}% емкости · запас ${Math.round((capacity-value)*100)/100}`;
+ }
  function snapshot(model,name='',now=Date.now()){
   const normalized=v=>Array.isArray(v)?v.map(normalized):v&&typeof v==='object'?Object.fromEntries(Object.keys(v).sort().map(k=>[k,normalized(v[k])])):v;
   const selection={...model.selection};if(selection.values)selection.values=[...selection.values].sort();
@@ -141,5 +153,5 @@ globalThis.JbpRoadmap = (() => {
   const plan=[];for(const [field,title]of [['cutoff','Отсечка'],['releaseDate','Дата релиза']])if(before[field]!==after[field])plan.push({field:title,before:before[field],after:after[field]});
   return {rows,plan,added:rows.filter(r=>r.kind==='added').length,removed:rows.filter(r=>r.kind==='removed').length,changed:rows.filter(r=>r.kind==='changed').length};
  }
- return {snapshot,compareSnapshots,riskReasons,dependencyReason,excluded,compactAI,applyCutoff,exportModel,scope,componentIds,fieldText,DAY,KEY,quote,fieldJql,defaults,config,day,date,parentRef,team,sprintIds,schedule,build};
+ return {progress,capacityStatus,snapshot,compareSnapshots,riskReasons,dependencyReason,excluded,compactAI,applyCutoff,exportModel,scope,componentIds,fieldText,DAY,KEY,quote,fieldJql,defaults,config,day,date,parentRef,team,sprintIds,schedule,build};
 })();

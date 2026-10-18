@@ -16,7 +16,7 @@
   }
   async load(project,version,c,prefs,signal,progress=()=>{},componentIds=[],versionField='fixVersion'){
    if(!['fixVersion','affectedVersion'].includes(versionField))throw Error('Выберите поле релиза из списка.');const scope=R.scope(componentIds);componentIds=scope.mode==='components'?scope.values:[];c=R.config(c);if(!/^\d+$/.test(String(version.id)))throw Error('Выберите релиз проекта.');
-   const warnings=[],fields=[...new Set(['summary','status','issuetype','duedate','fixVersions','versions','issuelinks','parent',...c.columns,...c.dependencyColumns,...c.qualityColumns,c.rankField,c.teamField,c.startField,c.endField,c.sprintField,...c.levels.map(l=>l.parentField)].filter(Boolean))],order=` ORDER BY ${R.fieldJql(c.rankField)} ASC, key ASC`;
+   const warnings=[],fields=[...new Set(['summary','timeoriginalestimate',c.storyPointsField,'status','issuetype','duedate','fixVersions','versions','issuelinks','parent',...c.columns,...c.dependencyColumns,...c.qualityColumns,c.rankField,c.teamField,c.startField,c.endField,c.sprintField,...c.levels.map(l=>l.parentField)].filter(Boolean))],order=` ORDER BY ${R.fieldJql(c.rankField)} ASC, key ASC`;
    const types=l=>l.types.map(R.quote).join(',');
    progress('Загрузка корневых задач релиза…');
    let previous=await this.search(`project = ${R.quote(project)}${scope.jql?' AND ('+scope.jql+')':''} AND ${versionField} = ${version.id} AND issuetype IN (${types(c.levels[0])})`+order,fields,signal);

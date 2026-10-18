@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.20.26 — 2026-10-18
+
+- Add roadmap progress by team at a selected hierarchy level, excluding parent/child double counting and external blockers.
+- Support configurable Story Points field and Original Time Estimate hours; preserve unknown versus zero estimates and show weighted progress only with complete estimates.
+- Add local whole-release capacity targets per team/type set/unit with explicit uncertainty for incomplete estimates.
+- Verify mixed estimates, status completion, hour conversion, capacity persistence and browser flows in both themes.
+
+
 ## 0.20.25 — 2026-10-18
 
 - Save and delete local roadmap baselines (up to 20 per server/project/version field/release).

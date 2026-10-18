@@ -53,3 +53,5 @@ body .rm-view-tabs button[aria-pressed=true]{background:var(--ui-primary);color:
 .rm-plan-controls{display:flex;flex-wrap:wrap;gap:12px;align-items:center}.rm-plan-controls>input,.rm-plan-controls>select{flex:1;min-width:200px}.rm-saved-plans h2{font-size:18px}
 
 .rm-risk-reasons{min-width:260px;max-width:480px}.rm-risk-reasons p{margin:0 0 8px;line-height:1.5}.rm-risk-reasons p:last-child{margin-bottom:0}
+
+#rm-progress progress{width:90px;accent-color:var(--ui-primary)}#rm-progress input{width:130px}#rm-progress-table{overflow:auto}
