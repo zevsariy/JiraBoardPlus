@@ -1,4 +1,4 @@
-globalThis.JbpToolsSelection = ({onChange,onHistoryChange,message}) => {
+globalThis.JbpToolsSelection = ({onChange,onHistoryChange,message,document=globalThis.document,chrome=globalThis.chrome}) => {
  const $=id=>document.getElementById(id);let connection,board,sprint,historyBoard,config,boardsAbort,scopeAbort,revision=0,scopeRevision=0;
  const client=()=>new JbpTools.Client('',connection.baseUrl);
  function changed(){onChange();$('runRefine').disabled=!connection||(!board||!config||($('source').value==='sprint'&&!sprint)||($('source').value==='column'&&!$('refineColumn').value));}
@@ -53,5 +53,5 @@ globalThis.JbpToolsSelection = ({onChange,onHistoryChange,message}) => {
  $('retry-boards').onclick=load;
  chrome.storage?.onChanged?.addListener((changes,area)=>{if(area!=='local'||!changes.jbpReportsV1)return;const next=changes.jbpReportsV1.newValue;if(!next||!connection||(next.project||'')!==connection.project||(next.baseUrl||JbpSprint.origin+(next.context||''))!==connection.baseUrl)load();});
  load();
- return {refresh:changed,get(){if(!connection)throw new Error('Настройки подключения ещё не загружены.');return {baseUrl:connection.baseUrl,board:board?String(board.id):'',source:$('source').value,sprint:sprint?.id,columnIndex:$('refineColumn').value||null};},history(){if(!connection||!historyBoard)throw new Error('Выберите Scrum-доску из списка.');return {baseUrl:connection.baseUrl,board:String(historyBoard.id)};}};
+ return {dispose(){revision++;scopeRevision++;boardsAbort?.abort();scopeAbort?.abort();},refresh:changed,get(){if(!connection)throw new Error('Настройки подключения ещё не загружены.');return {baseUrl:connection.baseUrl,board:board?String(board.id):'',source:$('source').value,sprint:sprint?.id,columnIndex:$('refineColumn').value||null};},history(){if(!connection||!historyBoard)throw new Error('Выберите Scrum-доску из списка.');return {baseUrl:connection.baseUrl,board:String(historyBoard.id)};}};
 };

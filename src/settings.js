@@ -1,4 +1,4 @@
-(() => {
+globalThis.JbpSettingsMount=function(document,chrome=globalThis.chrome,window=globalThis.window){
   const B = globalThis.JbpBoard, $ = id => document.getElementById(id);
   async function send(type, prefs) { const r = await chrome.runtime.sendMessage({ type, prefs }); if (!r?.ok) throw new Error(r?.error || 'Служба расширения недоступна'); return r.data; }
   function status(text, error = false) { $('status').textContent = text; $('status').className = error ? 'error' : ''; }
@@ -57,5 +57,7 @@
     } catch (error) { status(error.message, true); } finally { submit.disabled = false; }
   };
   send('boardPrefsGet').then(prefs => { for (const key of Object.keys(B.defaults)) { if (typeof B.defaults[key] === 'boolean') $(key).checked = prefs[key]; else $(key).value = prefs[key]; } $('team-field-name').value=prefs.teamField;teamReady=true;if(connection?.baseUrl)loadTeamFields();$('save-main').disabled=false; }).catch(e => status(e.message, true));
-})();
+return ()=>{teamRevision++;};
+};
+if(!globalThis.jbpShellInstalled)JbpSettingsMount(document);
 

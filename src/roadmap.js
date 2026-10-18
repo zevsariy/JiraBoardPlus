@@ -1,10 +1,10 @@
-(() => {
+globalThis.JbpRoadmapMount=function(document,chrome=globalThis.chrome,window=globalThis.window){
  const R=JbpRoadmap,$=id=>document.getElementById('rm-'+id),el=(tag,text)=>{const e=document.createElement(tag);if(text!=null)e.textContent=text;return e;};
  let connection,client,meta,draft,config,version,model,key,abort,revision=0,fieldValues={},collapsed=new Set(),selectedComponents=[];
  const message=(text='')=>{$('message').hidden=!text;$('status').textContent=text;};
  $('dismiss').onclick=()=>message();
  let selectedIssue='',graphModel=null,baseline=null,scenarioEdits={};
- const graph=R.createGraph($('graph'),{onError:e=>message(e.message),onDetails:k=>{const n=model?.nodes.find(n=>n.key===k);if(n)details(n);else message('Задача недоступна в загруженных данных. Откройте её по ссылке Jira.');},onGantt:k=>{navigate(k);}});
+ const graph=R.createGraph($('graph'),{store:chrome.storage.local,onError:e=>message(e.message),onDetails:k=>{const n=model?.nodes.find(n=>n.key===k);if(n)details(n);else message('Задача недоступна в загруженных данных. Откройте её по ссылке Jira.');},onGantt:k=>{navigate(k);}});
  function setView(isGraph){$('graph').hidden=!isGraph;$('timeline').hidden=isGraph;$('show-graph').setAttribute('aria-pressed',String(isGraph));$('show-gantt').setAttribute('aria-pressed',String(!isGraph));if(isGraph)ensureGraph();}
  $('show-graph').onclick=()=>setView(true);$('show-gantt').onclick=()=>setView(false);
  function reset(){baseline=null;scenarioEdits={};if(document.fullscreenElement?.id==='rm-gantt-stage')document.exitFullscreen().catch(()=>{});$('timeline').jbpDispose?.();graph.destroy();graphModel=null;selectedIssue='';abort?.abort();revision++;model=null;$('result').hidden=true;$('details').hidden=true;$('cancel').hidden=true;$('cutoff').disabled=!version;}
@@ -167,4 +167,6 @@
  function selectSection(id,focus=false){activeSection=id;for(const [key,title,panel]of workspaceSections){const button=document.getElementById('rm-tab-'+key),selected=key===id;panel.hidden=!selected;button.setAttribute('aria-selected',String(selected));button.tabIndex=selected?0:-1;if(selected&&focus)button.focus();}if(id==='plan'&&model){draw();if(!$('graph').hidden)graph.show();}}
  for(const [id,title,panel]of workspaceSections){const b=el('button',title);b.id='rm-tab-'+id;b.type='button';b.setAttribute('role','tab');if(!panel.id)panel.id='rm-section-'+id;b.setAttribute('aria-controls',panel.id);panel.setAttribute('role','tabpanel');panel.setAttribute('aria-labelledby',b.id);b.onclick=()=>selectSection(id);b.onkeydown=e=>{const i=workspaceSections.findIndex(s=>s[0]===id);let next;if(e.key==='ArrowRight')next=(i+1)%workspaceSections.length;if(e.key==='ArrowLeft')next=(i+workspaceSections.length-1)%workspaceSections.length;if(e.key==='Home')next=0;if(e.key==='End')next=workspaceSections.length-1;if(next!==undefined){e.preventDefault();selectSection(workspaceSections[next][0],true);}};sectionTabs.append(b);$('result').append(panel);}selectSection('plan');
  $('retry').onclick=init;chrome.storage.onChanged.addListener((changes,area)=>{if(area!=='local')return;if(changes.jbpAI)aiVisibility();if(changes.jbpReportsV1){const a=changes.jbpReportsV1.oldValue||{},b=changes.jbpReportsV1.newValue||{};if(a.baseUrl!==b.baseUrl||a.project!==b.project)init();}else if(changes.jbpBoardPrefs&&version)load();});let resize;window.addEventListener('resize',()=>{clearTimeout(resize);resize=setTimeout(draw,150);});init();
-})();
+return ()=>{revision++;abort?.abort();clearTimeout(resize);$('timeline').jbpDispose?.();graph.dispose?.();if(document.fullscreenElement===ganttStage)document.exitFullscreen().catch(()=>{});};
+};
+if(!globalThis.jbpShellInstalled)JbpRoadmapMount(document);

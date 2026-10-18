@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.24.0 — 2026-10-18
+
+- Embed Roadmap, Tools and general Settings in the Jira workspace, sharing existing controllers and data with standalone pages.
+- Isolate roadmap persistence to the configured Jira/project; keep graph positions, snapshots and scenarios in their existing namespaces.
+- Dispose requests, graph instances and document/window/storage listeners when switching sections.
+- Keep server permission grants and AI key entry in the protected extension settings tab, with explicit buttons in embedded Settings.
+- Verify all section transitions and preference saving in embedded browser tests, plus standalone Roadmap, Tools and Team settings regressions.
+
+
 ## 0.23.0 — 2026-10-18
 
 - Add shared embedded navigation between Metrics, JQL reports and Help under the Jira header.
