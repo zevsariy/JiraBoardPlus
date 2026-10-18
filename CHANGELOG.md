@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.20.20 — 2026-10-18
+
+- Add native full-screen Gantt with search/navigation, full available width and height, and issue inspector inside the full-screen view.
+- Redraw on full-screen changes while preserving scroll; exit via button or browser Escape.
+- Verify full-screen entry/exit and issue inspection in browser tests.
+
+
 ## 0.20.19 — 2026-10-18
 
 - Virtualize Gantt plans over 100 rows, rendering the visible window with overscan while retaining complete navigation indexes.
