@@ -58,3 +58,13 @@ test('risk explanations use inclusive dependency dates, missing dates and config
  const lines=R.riskReasons(n,{nodes:[n,child],cutoff:R.day('2026-11-10')}).join(' ');assert.match(lines,/10 календ/);assert.match(lines,/5 календ/);assert.match(lines,/определяют: D-3/);
  child.end=null;n.late=false;n.cutoffLate=false;n.risk='unknown';assert.match(R.riskReasons(n,{nodes:[n,child]}).join(' '),/Нет даты окончания: D-3/);
 });
+
+test('snapshots compare stable fields, membership and plan dates, rejecting different scope',()=>{
+ const m=R.build([{issue:issue('D-1'),level:0},{issue:issue('D-2'),level:0}],c,prefs);Object.assign(m,{config:R.config(c),project:'D',version:{id:8,releaseDate:'2026-11-01'},versionField:'fixVersion',selection:{mode:'labels',values:['a','b']}});
+ const before=R.snapshot(m,'Baseline',1);m.nodes.reverse();m.loadedAt=999;
+ assert.deepEqual(R.compareSnapshots(before,R.snapshot(m)).rows,[]);
+ m.nodes.find(n=>n.key==='D-1').status='Done';m.nodes=m.nodes.filter(n=>n.key!=='D-2');m.nodes.push({...m.nodes[0],key:'D-3',summary:'New'});m.cutoff=R.day('2026-10-15');
+ const after=R.snapshot(m),diff=R.compareSnapshots(before,after);assert.equal(diff.added,1);assert.equal(diff.removed,1);assert.equal(diff.changed,1);assert.equal(diff.rows.find(r=>r.key==='D-1').changes[0].field,'Статус');assert.equal(diff.plan[0].after,'2026-10-15T00:00:00.000Z');
+ m.selection.values.reverse();assert.equal(R.snapshot(m).signature,after.signature);m.selection.values=['c'];assert.throws(()=>R.compareSnapshots(before,R.snapshot(m)),/Область/);
+ assert.equal(before.nodes.find(n=>n.key==='D-1').status,'Doing');
+});

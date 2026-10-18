@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.20.25 — 2026-10-18
+
+- Save and delete local roadmap baselines (up to 20 per server/project/version field/release).
+- Compare a baseline with the loaded plan: membership, titles, hierarchy, statuses, teams, dates, sprints and blockers; show cutoff/release-date changes separately.
+- Reject incompatible scopes/mappings and ignore ordering or load timestamps to avoid false changes.
+- Display comparison direction, data timestamps and paginated differences with Jira links; document storage and comparison limits.
+
+
 ## 0.20.24 — 2026-10-18
 
 - Explain roadmap risks with concrete deadline/cutoff dates, calendar-day overruns, child schedule drivers and missing end dates.

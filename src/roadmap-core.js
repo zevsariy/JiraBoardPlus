@@ -124,5 +124,22 @@ globalThis.JbpRoadmap = (() => {
   const byKey=new Map(model.nodes.map(x=>[x.key,x]));for(const edge of n.dependencies||[])if(edge.conflict)reasons.push(dependencyReason(edge,byKey));
   return reasons;
  }
- return {riskReasons,dependencyReason,excluded,compactAI,applyCutoff,exportModel,scope,componentIds,fieldText,DAY,KEY,quote,fieldJql,defaults,config,day,date,parentRef,team,sprintIds,schedule,build};
+ function snapshot(model,name='',now=Date.now()){
+  const normalized=v=>Array.isArray(v)?v.map(normalized):v&&typeof v==='object'?Object.fromEntries(Object.keys(v).sort().map(k=>[k,normalized(v[k])])):v;
+  const selection={...model.selection};if(selection.values)selection.values=[...selection.values].sort();
+  const mapping=Object.fromEntries(['rankField','teamField','startField','endField','sprintField','dateMode','dependency','excludeMasks'].map(k=>[k,model.config[k]]));mapping.levels=model.config.levels.map(l=>({types:[...l.types].sort(),parentField:l.parentField||''}));
+  const signature=JSON.stringify(normalized({project:model.project,version:String(model.version.id),field:model.versionField,selection,mapping}));
+  const utc=v=>v==null?null:new Date(v).toISOString();
+  return {schema:1,name:name.trim().slice(0,100)||new Date(now).toLocaleString(),createdAt:now,loadedAt:model.loadedAt,signature,cutoff:utc(model.cutoff),releaseDate:model.version.releaseDate||null,nodes:model.nodes.map(n=>({key:n.key,summary:n.summary,parent:n.parent||'',status:n.status,team:n.team,teamId:n.teamId,start:utc(n.start),end:utc(n.end),due:utc(n.due),external:!!n.external,sprints:[...new Set(n.segments.map(s=>s.name))].sort(),blockers:[...new Set((n.dependencies||[]).map(e=>e.from))].sort()}))};
+ }
+ function compareSnapshots(before,after){
+  if(before.schema!==1||after.schema!==1||before.signature!==after.signature)throw Error('Область, релиз или правила построения отличаются. Восстановите исходный план для корректного сравнения.');
+  const rows=[],old=new Map(before.nodes.map(n=>[n.key,n])),current=new Map(after.nodes.map(n=>[n.key,n]));
+  const fields={summary:'Название',parent:'Родитель',status:'Статус',team:'Команда',teamId:'ID команды',start:'Начало',end:'Окончание',due:'Due Date',external:'Внешний блокер',sprints:'Спринты',blockers:'Блокирующие задачи'};
+  for(const n of after.nodes){const previous=old.get(n.key);if(!previous){rows.push({key:n.key,summary:n.summary,kind:'added',changes:[]});continue;}const changes=[];for(const [field,title]of Object.entries(fields))if(JSON.stringify(previous[field])!==JSON.stringify(n[field]))changes.push({field:title,before:previous[field],after:n[field]});if(changes.length)rows.push({key:n.key,summary:n.summary,kind:'changed',changes});}
+  for(const n of before.nodes)if(!current.has(n.key))rows.push({key:n.key,summary:n.summary,kind:'removed',changes:[]});
+  const plan=[];for(const [field,title]of [['cutoff','Отсечка'],['releaseDate','Дата релиза']])if(before[field]!==after[field])plan.push({field:title,before:before[field],after:after[field]});
+  return {rows,plan,added:rows.filter(r=>r.kind==='added').length,removed:rows.filter(r=>r.kind==='removed').length,changed:rows.filter(r=>r.kind==='changed').length};
+ }
+ return {snapshot,compareSnapshots,riskReasons,dependencyReason,excluded,compactAI,applyCutoff,exportModel,scope,componentIds,fieldText,DAY,KEY,quote,fieldJql,defaults,config,day,date,parentRef,team,sprintIds,schedule,build};
 })();
