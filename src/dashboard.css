@@ -2,3 +2,5 @@
 .flow-chart{margin:20px 0;padding:16px;border:1px solid #dce5ec;border-radius:10px;background:#fff}.flow-chart h4{margin:0 0 8px}.chart-scroll{overflow:auto;max-height:540px}.chart-scroll svg{display:block;max-width:none;font:12px system-ui;fill:#40516a}.chart-mark{cursor:pointer}.chart-mark:hover,.chart-mark:focus{stroke:#172b4d;stroke-width:2;outline:none;filter:brightness(1.1)}.flow-chart-controls{display:flex;flex-wrap:wrap;gap:12px;margin:12px 0}.flow-chart-controls label{display:flex;align-items:center;gap:5px}
 
 .chart-scroll svg{width:100%;max-width:1100px;height:auto;margin-inline:auto}
+
+.flow-dashboard .flow-trend-actions{align-items:flex-end}.flow-trend-actions label{display:flex;flex-direction:column;gap:6px;margin:0}.flow-trend-actions button{margin:0}
