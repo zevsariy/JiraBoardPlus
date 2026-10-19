@@ -137,7 +137,14 @@ globalThis.JbpBoard = (() => {
     const row=data.table?.body?.rows?.find(r=>r.headerColumns?.some(c=>c.id==='issuekey'&&normalized(c.value)===normalized(key)));
     if(!Array.isArray(row?.valueColumns))throw new Error('Timepiece: задача не найдена в ответе.');
     const names=new Map((data.table.header?.valueColumns||[]).map(c=>[String(c.id),String(c.value)]));
-    const values=row.valueColumns.map(cell=>{const hours=timepieceHours(cell,data.viewFormat||'hours');return {id:String(cell.id),name:names.get(String(cell.id))||(String(cell.id)===String(statusId)?'Текущий статус':`Статус ${cell.id}`),current:String(cell.id)===String(statusId),hours,text:formatHours(hours,unit)};});
+    const values=row.valueColumns.map(cell=>{
+      const current=String(cell.id)===String(statusId);
+      let hours=timepieceHours(cell,data.viewFormat||'hours');
+      // Outside working hours Timepiece may omit the duration but explicitly report a zero current state.
+      const state=current&&Array.isArray(row.currentState)?row.currentState.find(s=>String(s.id)===String(statusId)):null;
+      if(hours==null&&current&&String(cell.count)==='0'&&timepieceHours(state,data.viewFormat||'hours')===0)hours=0;
+      return {id:String(cell.id),name:names.get(String(cell.id))||(current?'Текущий статус':`Статус ${cell.id}`),current,hours,text:formatHours(hours,unit)};
+    });
     if(!values.some(v=>v.current&&v.hours!=null))throw new Error('Timepiece: длительность текущего статуса не найдена или формат ответа отличается.');
     return values;
   }

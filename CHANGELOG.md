@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.24.11 — 2026-10-19
+
+- Show zero hours when Timepiece reports an explicit zero current state outside working-calendar hours, instead of an unknown-duration warning.
+- Keep missing or ambiguous durations unknown; add regression coverage for zero-state matching and incomplete responses.
+
 ## 0.24.10 — 2026-10-19
 
 - Hide Gantt-only controls and its legend in dependency graph mode; retain export and AI actions.

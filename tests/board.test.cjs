@@ -36,6 +36,14 @@ test('Timepiece matches issue and current status, numeric hours including zero',
   assert.deepEqual(statuses.map(s => s.name), ['In Progress', 'Review']);
   assert.equal(statuses[0].current, true); assert.equal(statuses[1].text, '0 ч');
 });
+test('Timepiece working calendar accepts explicit zero current state without inventing missing durations',()=>{
+ const row={headerColumns:[{id:'issuekey',value:'A-1'}],valueColumns:[{id:'3',value:'-',count:'0'}],currentState:[{id:'3',value:'0.0',raw:'0'}]};
+ const data={viewFormat:'hours',calendar:{calendarSuccessfullyLoaded:true},table:{body:{rows:[row]}}};
+ for(const mode of ['last','total'])assert.equal(B.timepieceStatuses(data,'A-1','3',mode)[0].text,'0 ч');
+ row.currentState[0].id='4';assert.throws(()=>B.timepieceStatuses(data,'A-1','3'));
+ row.currentState[0].id='3';row.valueColumns[0].count='1';assert.throws(()=>B.timepieceStatuses(data,'A-1','3'));
+ row.valueColumns[0].count='0';delete row.currentState;assert.throws(()=>B.timepieceStatuses(data,'A-1','3'));
+});
 test('configured terminal names ignore case and category fallback is optional',()=>{
  const p=B.validate({doneStatusNames:' Done, Closed, Resolved, Obsolete ',doneCategory:false});
  assert.equal(B.isDone({name:'oBsOlEtE'},p),true);assert.equal(B.isDone({name:'Custom',statusCategory:{key:'done'}},p),false);
