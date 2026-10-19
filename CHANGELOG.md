@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.24.17 — 2026-10-19
+
+- Schedule a dedicated alarm for the next JQL query deadline, preventing the periodic watchdog from adding an extra minute to short intervals.
+- Restore the deadline alarm on startup and cancel it when schedules are disabled. Keep checkpoint recovery and error backoff.
+- Verify scheduled deadlines with unit tests and the real browser Alarms API using synthetic Jira data.
+
 ## 0.24.16 — 2026-10-19
 
 - Analyze Kanban backlog using its mapped statuses and board subquery instead of the Scrum-only backlog endpoint.

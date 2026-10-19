@@ -2,6 +2,15 @@ importScripts('connection.js', 'reports-core.js', 'board-core.js', 'sprint-core.
 const R = globalThis.JbpReports;
 const STORE = 'jbpReportsV1';
 const ALARM = 'jbp-scheduler';
+const DUE_ALARM = 'jbp-next-query';
+async function scheduleNext(state) {
+  const pending = Object.keys(state.jobs || {}).length > 0;
+  const times = state.queries.filter(q => q.enabled && !state.jobs?.[q.id] && Number.isFinite(q.nextRun)).map(q => q.nextRun);
+  if (pending) times.push(Date.now() + 30000);
+  if (!times.length) { await chrome.alarms.clear(DUE_ALARM); return; }
+  // The periodic alarm is a recovery watchdog, not the query's clock.
+  await chrome.alarms.create(DUE_ALARM, { when: Math.max(Date.now() + 1000, Math.min(...times)) });
+}
 let chain = Promise.resolve();
 const serial = fn => { const next = chain.then(fn); chain = next.catch(() => {}); return next; };
 const CONTENT_FILES = ["src/ui-theme.js", "src/jira-theme.js", "src/api.js", "src/team-panel.js", "src/content.js", "src/board-core.js", "src/active-board.js", "src/sprint-core.js", "src/sprint-client.js", "src/vendor/marked.umd.js", "src/ai-markdown.js", "src/ai-ui.js", "src/ai-board.js", "src/sprint-ui.js", "src/sprint-report.js", "src/private-notes.js"];
@@ -19,7 +28,7 @@ async function syncContent(){
 }
 const empty = () => ({ queries: [], results: {}, jobs: {}, context: '', noticeError: '', fieldNames: {} });
 async function read() { return (await chrome.storage.local.get(STORE))[STORE] || empty(); }
-async function write(state) { await chrome.storage.local.set({ [STORE]: state });if(chrome.tabs?.query&&state.baseUrl){const base=state.baseUrl;chrome.tabs.query({url:new URL(base).origin+'/*'}).then(tabs=>Promise.allSettled(tabs.filter(t=>isJiraPage(t.url,base)).map(t=>chrome.tabs.sendMessage(t.id,{type:'embeddedReportChanged'})))).catch(()=>{});} }
+async function write(state) { await chrome.storage.local.set({ [STORE]: state });await scheduleNext(state);if(chrome.tabs?.query&&state.baseUrl){const base=state.baseUrl;chrome.tabs.query({url:new URL(base).origin+'/*'}).then(tabs=>Promise.allSettled(tabs.filter(t=>isJiraPage(t.url,base)).map(t=>chrome.tabs.sendMessage(t.id,{type:'embeddedReportChanged'})))).catch(()=>{});} }
 async function request(context, path, body) {
   if(!context)throw new Error('Укажите адрес Jira в настройках или мастере.');
   const response = await fetch(`${context}/rest/api/2/${path}`, {
@@ -48,6 +57,7 @@ async function arm() {
   await syncContent();
   await chrome.storage.local.setAccessLevel({ accessLevel: 'TRUSTED_CONTEXTS' });
   if (!await chrome.alarms.get(ALARM)) await chrome.alarms.create(ALARM, { periodInMinutes: 1 });
+  await scheduleNext(await read());
 }
 async function kick() { await chrome.alarms.create('jbp-now', { when: Date.now() + 100 }); }
 async function tick() {
@@ -265,7 +275,7 @@ chrome.runtime.onMessage.addListener((message, sender, reply) => {
   serial(() => command(message)).then(data => reply({ ok: true, data }), error => reply({ ok: false, error: error.message }));
   return true;
 });
-chrome.alarms.onAlarm.addListener(alarm => { if ([ALARM, 'jbp-now'].includes(alarm.name)) serial(tick).catch(console.error); });
+chrome.alarms.onAlarm.addListener(alarm => { if ([ALARM, DUE_ALARM, 'jbp-now'].includes(alarm.name)) serial(tick).catch(console.error); });
 chrome.runtime.onInstalled.addListener(details => { serial(arm).catch(console.error); if(details?.reason==='install')chrome.tabs.create({url:chrome.runtime.getURL('onboarding.html')}).catch(console.error); });
 chrome.runtime.onStartup.addListener(() => { serial(async () => { await arm(); await tick(); }).catch(console.error); });
 chrome.notifications.onClicked.addListener(id => { if (id.startsWith('jbp:')) { chrome.tabs.create({ url: chrome.runtime.getURL(id==='jbp:test'?'report.html':`report.html#${encodeURIComponent(id.slice(4))}`) }); chrome.notifications.clear(id); } });

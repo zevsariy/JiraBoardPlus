@@ -50,6 +50,11 @@ const assert = require('node:assert/strict');
     await page.locator('.report').waitFor();
     await page.getByRole('button', { name: 'Запустить', exact: true }).click();
     await page.getByText('База сравнения создана', { exact: true }).waitFor({ timeout: 15000 });
+    const scheduled = await worker.evaluate(async () => ({
+      alarm: await chrome.alarms.get('jbp-next-query'),
+      query: (await chrome.storage.local.get('jbpReportsV1')).jbpReportsV1.queries[0]
+    }));
+    assert.equal(scheduled.alarm.scheduledTime, scheduled.query.nextRun);
     await worker.evaluate(() => { globalThis.testRows = 2; });
     await page.getByRole('button', { name: 'Запустить', exact: true }).click();
     await page.getByText('Новых: 1', { exact: true }).waitFor({ timeout: 15000 });

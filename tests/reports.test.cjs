@@ -32,12 +32,13 @@ test('rejects truncated and inconsistent pagination', () => {
 });
 function harness() {
   let storage = {jbpReportsV1:{baseUrl:'https://jira.example.com',queries:[],results:{},jobs:{},context:'',noticeError:'',fieldNames:{}}}, replyQueue = [], calls = [], notices = [];
+  const alarms = new Map();
   const event = () => ({ addListener() {} });
   const context = vm.createContext({ console, URL, Response, AbortSignal, crypto: require('node:crypto').webcrypto, setTimeout,
     fetch: async (url, options) => { calls.push({ url, options }); const next = replyQueue.shift(); if (!next) throw new Error('Unexpected request'); return new Response(JSON.stringify(next.body), { status: next.status || 200, headers: { 'content-type': 'application/json' } }); },
     chrome: {
       storage: { local: { get: async () => structuredClone(storage), set: async data => { storage = structuredClone(data); }, setAccessLevel: async () => {} } },
-      alarms: { get: async () => ({}), create: async () => {}, onAlarm: event() },
+      alarms: { get: async name => alarms.get(name), create: async (name, value) => alarms.set(name, value), clear: async name => alarms.delete(name), onAlarm: event() },
       runtime: { id: 'test', getURL: p => `chrome-extension://test/${p}`, onMessage: event(), onInstalled: event(), onStartup: event() },
       action: { onClicked: event() }, tabs: { create: async () => {} },
       notifications: { onClicked: event(), create: async (id, data) => { notices.push({ id, data }); }, clear: async () => {} }
@@ -45,11 +46,24 @@ function harness() {
   });
   context.importScripts = (...files) => files.forEach(file => vm.runInContext(fs.readFileSync(path.join(__dirname, '../src', file), 'utf8'), context));
   vm.runInContext(fs.readFileSync(path.join(__dirname, '../src/background.js'), 'utf8'), context);
-  return { run: code => vm.runInContext(code, context), queue: (...data) => { replyQueue.push(...data); }, calls, notices, get: () => structuredClone(storage.jbpReportsV1) };
+  return { run: code => vm.runInContext(code, context), queue: (...data) => { replyQueue.push(...data); }, calls, notices, alarms, get: () => structuredClone(storage.jbpReportsV1) };
 }
 const me = { body: { key: 'alice' } };
 const issue = id => ({ id: String(id), key: `DEMO-${id}`, fields: { summary: `Task ${id}`, status: { name: 'Open' } } });
 const page = (ids, startAt, total) => ({ body: { issues: ids.map(issue), startAt, total } });
+
+test('query deadline alarm tracks completion and clears when schedule is disabled', async () => {
+  const h = harness();
+  await h.run(`command({type:'save',query:${JSON.stringify({...config,minutes:1})}})`);
+  let q = h.get().queries[0];
+  assert.equal(h.alarms.get('jbp-next-query').when, q.nextRun);
+  h.queue(me, page([1], 0, 1));
+  await h.run("command({type:'run'})"); await h.run('tick()');
+  q = h.get().queries[0];
+  assert.equal(h.alarms.get('jbp-next-query').when, h.get().results[q.id].finishedAt + 60000);
+  await h.run(`command({type:'save',query:${JSON.stringify({...q,enabled:false})}})`);
+  assert.equal(h.alarms.has('jbp-next-query'), false);
+});
 test('worker: empty start, paginated baseline, new-item notification, failed run preserves result', async () => {
   const h = harness();
   assert.equal((await h.run("command({type:'get'})")).queries.length, 0);
