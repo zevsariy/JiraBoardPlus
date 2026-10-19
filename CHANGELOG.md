@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.24.24
+
+- Уточнена подсказка роадмэпа: поле Team задаётся в общих настройках расширения, отдельно выбирать его не нужно.
+
 ## 0.24.23 — 2026-10-19
 
 - Allow standalone Settings to load the Jira field catalogue without granting report-write operations.
