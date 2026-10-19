@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.24.20 — 2026-10-19
+
+- Make roadmap backup and import available in a clearly labelled section before loading a release. Disable controls until the project context is ready.
+
 ## 0.24.19 — 2026-10-19
 
 - Put basic metrics and roadmap instructions before advanced details in the built-in help; make chart and board-overview headings subordinate to the metrics section.
