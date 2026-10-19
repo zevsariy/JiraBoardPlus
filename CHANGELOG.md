@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.24.18 — 2026-10-19
+
+- Explain that Sprint Report exports are handed to the browser; do not report a saved file before Chrome permits and finishes the download.
+
 ## 0.24.17 — 2026-10-19
 
 - Schedule a dedicated alarm for the next JQL query deadline, preventing the periodic watchdog from adding an extra minute to short intervals.

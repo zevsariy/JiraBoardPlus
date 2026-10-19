@@ -97,7 +97,7 @@
     $('splitTypes').onchange=render;$('percentile').onchange=render;
     $('assignees').onchange=()=>{selected=[...$('assignees').selectedOptions].map(o=>o.value);render();};
     $('reset').onclick=()=>{selected=[];[...$('assignees').options].forEach(o=>o.selected=false);render();};$('group').onchange=render;
-    $('export').onclick=safe(async()=>{const ids=$('range').value==='filtered'?selected:[],types=$('range').value==='filtered'?selectedTypes:[],rows=S.selection(data,ids,data.profile.includeSubtasks,types);const output=S.exportData(data,rows,{issueTypes:types,issueTypeBasis:'current',assigneeIds:ids,assigneeBasis:'current',includeSubtasks:data.profile.includeSubtasks},{description:$('description').checked,history:$('history').checked,percentile:Number($('percentile').value)});S.download(output,$('format').value);status('Файл сохранён локально; данные никуда не отправлены.');});
+    $('export').onclick=safe(async()=>{const ids=$('range').value==='filtered'?selected:[],types=$('range').value==='filtered'?selectedTypes:[],rows=S.selection(data,ids,data.profile.includeSubtasks,types);const output=S.exportData(data,rows,{issueTypes:types,issueTypeBasis:'current',assigneeIds:ids,assigneeBasis:'current',includeSubtasks:data.profile.includeSubtasks},{description:$('description').checked,history:$('history').checked,percentile:Number($('percentile').value)});S.download(output,$('format').value);status('Скачивание передано браузеру. Проверьте загрузки Chrome и разрешение на скачивание файлов. Данные не отправлены в ИИ.');});
     let saved=[],snapshotsReady=false,snapshotBusy=false,listRevision=0;
     function snapshotControls(){
       const hasSelection=snapshotsReady&&saved.some(s=>s.id===$('saved').value);
