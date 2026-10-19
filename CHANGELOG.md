@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.24.12 — 2026-10-19
+
+- Put help section headings and introductory instructions before advanced notes so table-of-contents links land at a clear starting point.
+- Remove the server-specific Team field ID from the introductory help text.
+
 ## 0.24.11 — 2026-10-19
 
 - Show zero hours when Timepiece reports an explicit zero current state outside working-calendar hours, instead of an unknown-duration warning.
