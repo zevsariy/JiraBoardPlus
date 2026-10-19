@@ -23,5 +23,5 @@ globalThis.JbpSearchPicker = function(container, {onSelect, onClear = () => {}})
   };
   list.onmousedown=e=>e.preventDefault();
   input.onblur=close;
-  return {set(values,placeholder){items=values;selected=null;input.value='';input.placeholder=placeholder;input.disabled=!values.length;close();},select(id){const item=items.find(item=>String(item.id)===String(id));if(item)commit(item);}};
+  return {clear(){selected=null;input.value='';close();onClear();},set(values,placeholder){items=values;selected=null;input.value='';input.placeholder=placeholder;input.disabled=!values.length;close();},select(id){const item=items.find(item=>String(item.id)===String(id));if(item)commit(item);}};
 };

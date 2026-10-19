@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.24.14 — 2026-10-19
+
+- Clear the dependency graph search selection when returning to the whole graph.
+- Keep the search field synchronized when opening a selected card’s neighborhood.
+- Cover cleared search state in the roadmap browser regression.
+
 ## 0.24.13 — 2026-10-19
 
 - Explain empty refinement results: distinguish no source tasks, disabled rules for matching issue types, and no detected problems.
