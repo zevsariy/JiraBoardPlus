@@ -1,5 +1,11 @@
 globalThis.JbpSettingsMount=function(document,chrome=globalThis.chrome,window=globalThis.window,options={}){
-  const B = globalThis.JbpBoard, $ = id => document.getElementById(id);
+
+  const cards=[...document.querySelectorAll('.settings-card')],nav=document.querySelector('.settings-nav');
+  const label=document.createElement('label');label.className='ui-setting-search';label.textContent='Найти настройку';const input=document.createElement('input');input.type='search';input.placeholder='Например: спринт, Team, заметки';input.setAttribute('aria-label','Найти настройку');label.append(input);nav?.after(label);
+  const count=document.createElement('p');count.className='ui-setting-count';count.role='status';label.after(count);
+  input.addEventListener('input',()=>{const q=input.value.trim().toLocaleLowerCase();for(const card of cards)card.hidden=!!q&&!card.textContent.toLocaleLowerCase().includes(q);count.textContent=q?'Разделов найдено: '+cards.filter(c=>!c.hidden).length:'';});
+  nav?.addEventListener('click',e=>{if(e.target.closest('a')){input.value='';input.dispatchEvent(new Event('input'));}});
+   const B = globalThis.JbpBoard, $ = id => document.getElementById(id);
   async function send(type, prefs) { const r = await chrome.runtime.sendMessage({ type, prefs }); if (!r?.ok) throw new Error(r?.error || 'Служба расширения недоступна'); return r.data; }
   function status(text, error = false) { $('status').textContent = text; $('status').className = error ? 'error' : ''; }
   let connection,teamFields=[],teamRevision=0,teamReady=false;

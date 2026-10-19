@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.24.15 — 2026-10-19
+
+- Restore settings search inside Jira by mounting it with the shared settings module.
+- Keep standalone and embedded filtering consistent; selecting a settings section clears the search and restores hidden cards.
+- Cover filtering and navigation reset in the embedded browser regression.
+
 ## 0.24.14 — 2026-10-19
 
 - Clear the dependency graph search selection when returning to the whole graph.
