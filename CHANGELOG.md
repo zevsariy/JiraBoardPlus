@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.24.19 — 2026-10-19
+
+- Put basic metrics and roadmap instructions before advanced details in the built-in help; make chart and board-overview headings subordinate to the metrics section.
+
 ## 0.24.18 — 2026-10-19
 
 - Explain that Sprint Report exports are handed to the browser; do not report a saved file before Chrome permits and finishes the download.
