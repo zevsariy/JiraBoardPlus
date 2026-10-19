@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.24.9 — 2026-10-19
+
+- Keep Gantt sprint bands readable when the operating system uses dark mode but embedded Jira uses a light theme.
+- Use the active UI surface token instead of a hard-coded dark sprint background.
+
 ## 0.24.8 — 2026-10-18
 
 - Show Jira validation details for invalid roadmap JQL instead of suggesting a login problem for every HTTP error.
