@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.24.13 — 2026-10-19
+
+- Explain empty refinement results: distinguish no source tasks, disabled rules for matching issue types, and no detected problems.
+- Verify the no-problems message in the tools browser regression.
+
 ## 0.24.12 — 2026-10-19
 
 - Put help section headings and introductory instructions before advanced notes so table-of-contents links land at a clear starting point.
