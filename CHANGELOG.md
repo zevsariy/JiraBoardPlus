@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.24.21 — 2026-10-19
+
+- Build the roadmap from the currently displayed hierarchy and field settings, validating them before querying Jira. Saving defaults remains a separate action.
+
 ## 0.24.20 — 2026-10-19
 
 - Make roadmap backup and import available in a clearly labelled section before loading a release. Disable controls until the project context is ready.
