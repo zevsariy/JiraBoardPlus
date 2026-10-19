@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.24.22 — 2026-10-19
+
+- Use neutral styling for successful Tools messages instead of the error background; dismiss previous messages when switching tool sections.
+
 ## 0.24.21 — 2026-10-19
 
 - Build the roadmap from the currently displayed hierarchy and field settings, validating them before querying Jira. Saving defaults remains a separate action.
