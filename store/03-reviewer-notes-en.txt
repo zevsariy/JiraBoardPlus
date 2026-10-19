@@ -1,0 +1,20 @@
+Jira Board Plus — reviewer notes (0.24.25)
+
+Purpose: a workspace for the user's Jira Server / Data Center issues, reports, metrics and release planning. Jira Cloud is not supported.
+
+1. On first launch, the wizard asks for the user's HTTPS Jira base URL (including a context path, if any) and project key. No Jira address or JQL is preconfigured.
+2. Grant the optional permission for that origin and sign in to Jira in the same Chrome profile. Reload the Jira tab. Board Plus appears in the Jira header; standalone pages are also accessible through the extension popup.
+3. Enable desired card features in Settings. Shared Team requires the Plans/Advanced Roadmaps field and Jira edit permissions; Timepiece is optional. Jira itself can be used as the status-time source.
+4. Add a JQL query on the reports page, choose columns, and run it. The first successful result is a baseline; subsequent runs show differences. Scheduling and notifications are optional.
+5. Metrics use project boards. Scrum supports sprint selection; Kanban supports flow metrics without requiring sprints. Roadmap requires a version, a root scope and a hierarchy matching the Jira installation.
+6. Private notes stay in the local browser profile and are not Jira comments. Local roadmap scenarios do not edit Jira. Team editing does write the selected Team to Jira.
+7. AI is disabled by default. Users may configure an OpenAI-compatible endpoint/model/key. Opening the analysis window displays a payload preview; only the Send and analyze action transmits it. AI is not required for other features. There are no developer-supplied AI credentials or endpoint.
+
+The screenshots use synthetic example data rendered by the actual current extension code. No corporate server or real customer issue data is included. Demo fixtures are not included in the runtime extension.
+
+There is no account or login service operated by this extension's developer. A Jira test environment with suitable read/edit access is required for authenticated integration review. If review requires credentials, the publisher must provide temporary test access privately in the reviewer-only dashboard field. No passwords are included in this public kit.
+
+All executable code is bundled. Optional remote API calls return data only. No analytics or advertising SDK is embedded. The optional donation link opens an external payment page and does not gate functionality.
+
+Privacy policy: https://github.com/zevsariy/JiraBoardPlus/blob/main/PRIVACY.md
+Source/support: https://github.com/zevsariy/JiraBoardPlus

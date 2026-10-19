@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="icons/board-plus.svg" width="96" height="96" alt="Логотип Jira Board Plus">
+</p>
+
 # Jira Board Plus
 
 Расширение Google Chrome для Jira Server / Data Center: дополнительная информация на карточках, JQL-отчёты, метрики Scrum и Kanban и роадмэп релиза в одном интерфейсе.
@@ -5,6 +9,16 @@
 Board Plus работает поверх вашей Jira, используя текущую сессию браузера и права пользователя. Основные разделы открываются из меню **Board Plus** в шапке Jira или отдельными вкладками расширения. Устанавливать серверную часть Board Plus не требуется.
 
 [Скачать последнюю версию](https://github.com/zevsariy/JiraBoardPlus/releases/latest) · [История изменений](CHANGELOG.md) · [Сообщить об ошибке](https://github.com/zevsariy/JiraBoardPlus/issues)
+
+![Jira Board Plus — доски, метрики и роадмэп](store/promo/marquee-1400x560.png)
+
+## Интерфейс
+
+Демонстрационные данные; изображения сформированы текущим кодом расширения.
+
+| Роадмэп релиза | Граф зависимостей |
+| --- | --- |
+| ![Гант](store/screenshots/02-roadmap.png) | ![Граф зависимостей](store/screenshots/03-dependencies.png) |
 
 ## Возможности
 
@@ -61,6 +75,7 @@ Board Plus работает поверх вашей Jira, используя т�
 - **Справка внутри расширения** — инструкции по настройке и работе каждого модуля; исходный файл: [help.html](help.html).
 - [Подробное описание возможностей и технические заметки](DEVELOPMENT.md).
 - [История выпусков](CHANGELOG.md).
+- [Материалы Chrome Web Store](store/README.md) — описания, разрешения, скриншоты и промо.
 - [Исходный чек-лист ручной проверки](MANUAL-QA-0.6.0.md) — для версии 0.6.0; не охватывает все последующие возможности.
 
 Исходники используют HTML, CSS и JavaScript, расширение — Manifest V3.
