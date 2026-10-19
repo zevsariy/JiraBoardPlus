@@ -24,7 +24,19 @@
       const estimate=checkEstimate?S.estimation(boardConfig,fields,config):{field:null,name:'Оценки не проверяются',unit:'—'};
       let endpoint,scopeJql='',sourceLabel;
       const boardName=boardConfig.name||`#${board}`;
-      if(source==='backlog'){endpoint=`agile/1.0/board/${board}/backlog`;sourceLabel=`Бэклог · ${boardName} (без активных и будущих спринтов)`;}
+      if(source==='backlog'){
+        endpoint=`agile/1.0/board/${board}/backlog`;sourceLabel=`Бэклог · ${boardName} (без активных и будущих спринтов)`;
+        if(boardConfig.type==='kanban'){
+          const backlog=boardConfig.columnConfig?.columns?.[0];
+          if(!backlog||!/^backlog$/i.test(String(backlog.name||'').trim()))throw new Error('Jira не вернула отдельную колонку Backlog. Проверьте настройку бэклога Kanban; первая рабочая колонка анализируется отдельно.');
+          if(!backlog.statuses?.length)throw new Error('Бэклог Kanban не настроен: ему не назначены статусы. Назначьте статусы бэклогу в настройках доски Jira или выберите «Первая колонка Kanban».');
+          const ids=[...new Set(backlog.statuses.map(s=>String(s.id)))];
+          if(ids.some(id=>!/^\d+$/.test(id)))throw new Error('Неизвестный формат статусов бэклога Kanban.');
+          endpoint=`agile/1.0/board/${board}/issue`;scopeJql=`status in (${ids.join(',')})`;
+          if(boardConfig.subQuery?.query)scopeJql+=` AND (${boardConfig.subQuery.query})`;
+          sourceLabel=`Бэклог Kanban · ${boardName}`;
+        }
+      }
       if(source==='sprint'){
         if(boardConfig.type==='kanban')throw new Error('У Kanban-доски нет спринтов.');
         endpoint=`agile/1.0/board/${board}/sprint/${sprint}/issue`;

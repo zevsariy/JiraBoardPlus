@@ -5,6 +5,7 @@ globalThis.JbpToolsSelection = ({onChange,onHistoryChange,message,document=globa
  function scope(){
   const source=$('source').value;$('sprint-picker').hidden=source!=='sprint';$('columnLabel').hidden=source!=='column';
   $('scope-hint').textContent=source==='sprint'?'Проверяются текущие задачи выбранного спринта в фильтре этой доски. Доступны также будущие спринты.':source==='column'?'Выбрана первая рабочая колонка. При необходимости уточните её по названию; учитываются все статусы этой колонки и фильтр доски.':'Бэклог Jira без задач активных и будущих спринтов. Для Kanban используется отдельный бэклог доски.';
+  if(config?.type==='kanban'&&$('source').options[0]?.disabled)$('scope-hint').textContent+=' Отдельный бэклог Kanban не настроен: назначьте ему статусы в настройках доски Jira.';
   changed();
  }
  const sprintPicker=JbpSearchPicker($('sprint-picker'),{onSelect(item){sprint=item;changed();},onClear(){sprint=null;changed();}});
@@ -24,6 +25,7 @@ globalThis.JbpToolsSelection = ({onChange,onHistoryChange,message,document=globa
     columns.forEach((c,i)=>{if(c.statuses?.length)$('refineColumn').add(new Option(c.name,String(i)));});
     const preferred=columns.findIndex(c=>c.statuses?.length&&!/^backlog$/i.test(String(c.name||'').trim()));
     if(preferred>=0)$('refineColumn').value=String(preferred);
+    if(/^backlog$/i.test(String(columns[0]?.name||'').trim())&&!columns[0].statuses?.length){$('source').options[0].disabled=true;$('source').value='column';}
    }
    scope();$('scope-status').textContent=`${item.name} · ${type==='kanban'?'Kanban':'Scrum'}`;
    if(type==='scrum'){

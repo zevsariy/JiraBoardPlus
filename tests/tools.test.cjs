@@ -39,18 +39,18 @@ test('refinement auto-estimates follow board setting and sprint scope stays on s
  assert.equal(result.estimate.unit,'h');assert.equal(result.rows[0].problems.length,0);assert.match(result.source,/Future planning/);assert.ok(calls.some(p=>p.startsWith('agile/1.0/board/7/sprint/99/issue?')&&p.includes('timeoriginalestimate')));
  assert.equal(calls.some(p=>p.includes('sprintreport')),false);
 });
-test('kanban column scopes all mapped statuses and subquery; backlog uses different endpoint',async()=>{
+test('kanban column scopes all mapped statuses and subquery; backlog scopes its own mapped statuses',async()=>{
  const c=new T.Client('','https://jira.example.com'),calls=[];const config={mode:'time',types:[{name:'*',checks:{estimate:true}}]};
  c.get=async p=>{calls.push(p);if(p==='api/2/field')return [];if(p.endsWith('/configuration'))return {type:'kanban',name:'Delivery',subQuery:{query:'fixVersion is EMPTY OR fixVersion in unreleasedVersions()'},columnConfig:{columns:[{name:'Backlog',statuses:[{id:'10'}]},{name:'Selected',statuses:[{id:'1'},{id:'4'}]}]}};return {startAt:0,total:0,issues:[]};};
  await c.refinement({board:'8',source:'column',columnIndex:'1',config},new AbortController().signal);
  const scoped=new URL('https://mock.invalid/'+calls.at(-1));assert.match(scoped.pathname,/board\/8\/issue$/);assert.equal(scoped.searchParams.get('jql'),'status in (1,4) AND (fixVersion is EMPTY OR fixVersion in unreleasedVersions())');
- await c.refinement({board:'8',source:'backlog',config},new AbortController().signal);assert.match(calls.at(-1),/board\/8\/backlog\?/);
+ await c.refinement({board:'8',source:'backlog',config},new AbortController().signal);const backlogUrl=new URL('https://mock.invalid/'+calls.at(-1));assert.match(backlogUrl.pathname,/board\/8\/issue$/);assert.equal(backlogUrl.searchParams.get('jql'),'status in (10) AND (fixVersion is EMPTY OR fixVersion in unreleasedVersions())');
  await assert.rejects(c.refinement({board:'8',source:'sprint',sprint:'2',config},new AbortController().signal),/Kanban/);
  await assert.rejects(c.refinement({board:'8',source:'column',columnIndex:'9',config},new AbortController().signal),/колонку/);
  await assert.rejects(c.refinement({board:'8',source:'backlog',config:{...config,mode:'auto'}},new AbortController().signal),/не задала поле оценки/);
 });
 test('refinement auto mode skips estimation requirement when no estimate rule is enabled',async()=>{
- const c=new T.Client('','https://jira.example.com');c.get=async p=>p==='api/2/field'?[]:p.endsWith('/configuration')?{type:'kanban',name:'Support'}:{startAt:0,total:0,issues:[]};
+ const c=new T.Client('','https://jira.example.com');c.get=async p=>p==='api/2/field'?[]:p.endsWith('/configuration')?{type:'kanban',name:'Support',columnConfig:{columns:[{name:'Backlog',statuses:[{id:'10'}]}]}}:{startAt:0,total:0,issues:[]};
  const result=await c.refinement({board:'8',source:'backlog',config:{mode:'auto',types:[{name:'*',checks:{description:true}}]}},new AbortController().signal);assert.equal(result.estimate.field,null);
 });
 
@@ -66,4 +66,10 @@ test('refinement uses configured Team mapping, never a same-ID unrelated field',
  const result=await c.refinement({board:'2',teamField:'customfield_10107',config:{types:[{name:'*',checks:{team:true}}]}},new AbortController().signal);
  assert.deepEqual(result.rows[0].problems,[]);assert.deepEqual(result.rows[0].unknown,[]);assert.deepEqual(result.rows[1].unknown,['Нет Team']);
  assert.match(calls.at(-1),/customfield_10107/);assert.doesNotMatch(calls.at(-1),/customfield_10200/);
+});
+
+test('Kanban backlog without mapped statuses never falls back to working columns',async()=>{
+ const c=new T.Client('','https://jira.example.com');let issueCalls=0;
+ c.get=async p=>{if(p==='api/2/field')return [];if(p.endsWith('/configuration'))return {type:'kanban',columnConfig:{columns:[{name:'Backlog',statuses:[]},{name:'To Do',statuses:[{id:'1'}]}]}};issueCalls++;throw Error('Unexpected issue read');};
+ await assert.rejects(c.refinement({board:'8',source:'backlog',config:{mode:'time',types:[{name:'*',checks:{description:true}}]}},new AbortController().signal),/не назначены статусы/);assert.equal(issueCalls,0);
 });

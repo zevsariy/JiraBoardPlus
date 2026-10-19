@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.24.16 — 2026-10-19
+
+- Analyze Kanban backlog using its mapped statuses and board subquery instead of the Scrum-only backlog endpoint.
+- Explain unconfigured Kanban backlog and select the working-column mode when backlog has no statuses. Never substitute working-column tasks for backlog tasks.
+- Add regression coverage for separate backlog scope and missing status mappings.
+
 ## 0.24.15 — 2026-10-19
 
 - Restore settings search inside Jira by mounting it with the shared settings module.
