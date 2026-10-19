@@ -61,3 +61,5 @@ body .rm-view-tabs button[aria-pressed=true]{background:var(--ui-primary);color:
 .rm-section-tabs{display:flex;gap:8px;flex-wrap:wrap;margin:16px 0;position:relative;z-index:12;background:var(--ui-bg);padding:10px 0}.rm-section-tabs [aria-selected=true]{background:var(--ui-primary);color:var(--ui-on-primary)}#rm-result>[role=tabpanel][hidden]{display:none!important}
 
 #rm-gantt-stage.rm-viewport{position:fixed;inset:0;z-index:10000}#rm-gantt-stage[hidden]{display:none!important}.rm-graph-controls label:has(input[type=checkbox]){flex-direction:row;align-items:center}
+
+[data-rm-gantt-only][hidden],.rm-legend[hidden]{display:none!important}

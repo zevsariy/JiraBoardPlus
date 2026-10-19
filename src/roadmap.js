@@ -5,7 +5,7 @@ globalThis.JbpRoadmapMount=function(document,chrome=globalThis.chrome,window=glo
  $('dismiss').onclick=()=>message();
  let selectedIssue='',graphModel=null,baseline=null,scenarioEdits={};
  const graph=R.createGraph($('graph'),{store:chrome.storage.local,onError:e=>message(e.message),onDetails:k=>{const n=model?.nodes.find(n=>n.key===k);if(n)details(n);else message('Задача недоступна в загруженных данных. Откройте её по ссылке Jira.');},onGantt:k=>{navigate(k);}});
- function setView(isGraph){if(isGraph)$('graph').after($('details'));else ganttStage.append($('details'));ganttStage.hidden=isGraph;$('graph').hidden=!isGraph;$('timeline').hidden=isGraph;$('show-graph').setAttribute('aria-pressed',String(isGraph));$('show-gantt').setAttribute('aria-pressed',String(!isGraph));if(isGraph)ensureGraph();}
+ function setView(isGraph){for(const node of document.querySelectorAll('[data-rm-gantt-only],.rm-legend'))node.hidden=isGraph;if(isGraph)$('graph').after($('details'));else ganttStage.append($('details'));ganttStage.hidden=isGraph;$('graph').hidden=!isGraph;$('timeline').hidden=isGraph;$('show-graph').setAttribute('aria-pressed',String(isGraph));$('show-gantt').setAttribute('aria-pressed',String(!isGraph));if(isGraph)ensureGraph();}
  $('show-graph').onclick=()=>setView(true);$('show-gantt').onclick=()=>setView(false);
  function reset(){if(viewport)leaveViewport();baseline=null;scenarioEdits={};if(document.fullscreenElement?.id==='rm-gantt-stage')document.exitFullscreen().catch(()=>{});$('timeline').jbpDispose?.();graph.destroy();graphModel=null;selectedIssue='';abort?.abort();revision++;model=null;$('result').hidden=true;$('details').hidden=true;$('cancel').hidden=true;$('cutoff').disabled=!version;}
  const columnPicker=JbpSearchPicker($('column-picker'),{onSelect:item=>{draft.columns=draft.columns||[];if(!draft.columns.includes(item.id)&&draft.columns.length<30)draft.columns.push(item.id);renderColumns();}});
@@ -15,7 +15,7 @@ globalThis.JbpRoadmapMount=function(document,chrome=globalThis.chrome,window=glo
  // Keep related controls together when the toolbar wraps.
  const toolbar=$('group').closest('.rm-controls');
  const toolbarGroups=[['Вид плана',['group','team','zoom']],['Отображение',['links','edge-mode','sprints','dues']],['Иерархия',['expand','collapse']],['Экспорт и анализ',['export-format','export','ai','ai-hint']]];
- for(const [title,ids] of toolbarGroups){const box=el('div');box.className='rm-toolbar-group';box.setAttribute('role','group');box.setAttribute('aria-label',title);box.append(el('strong',title));const controls=el('div');controls.className='rm-toolbar-items';for(const id of ids){const node=$(id);controls.append(node.closest('label')||node);}box.append(controls);toolbar.append(box);}
+ for(const [title,ids] of toolbarGroups){const box=el('div');box.className='rm-toolbar-group';if(!ids.includes('export'))box.setAttribute('data-rm-gantt-only','');box.setAttribute('role','group');box.setAttribute('aria-label',title);box.append(el('strong',title));const controls=el('div');controls.className='rm-toolbar-items';for(const id of ids){const node=$(id);controls.append(node.closest('label')||node);}box.append(controls);toolbar.append(box);}
  // Navigation stays local to the loaded plan; it never queries Jira.
  const navigation=el('div');navigation.className='rm-navigation';
  const search=el('div');search.className='search-picker';const searchInput=el('input');searchInput.id='rm-find';searchInput.setAttribute('aria-label','Найти задачу в плане');search.append(searchInput);navigation.append(search);

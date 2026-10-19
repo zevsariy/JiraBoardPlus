@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.24.10 — 2026-10-19
+
+- Hide Gantt-only controls and its legend in dependency graph mode; retain export and AI actions.
+- Restore the controls on returning to Gantt without changing their values.
+- Verify view switching in the roadmap browser test.
+
 ## 0.24.9 — 2026-10-19
 
 - Keep Gantt sprint bands readable when the operating system uses dark mode but embedded Jira uses a light theme.
