@@ -271,7 +271,8 @@ chrome.runtime.onMessage.addListener((message, sender, reply) => {
     }).then(data=>reply({ok:true,data}),error=>reply({ok:false,error:error.message}));return true;
   }
   // The board content script cannot trigger report commands or access stored results.
-  if (sender.id !== chrome.runtime.id || !sender.url?.startsWith(chrome.runtime.getURL('report.html'))) return;
+  const settingsFields = message.type === 'fields' && sender.url?.split(/[?#]/)[0] === chrome.runtime.getURL('settings.html');
+  if (sender.id !== chrome.runtime.id || (!settingsFields && !sender.url?.startsWith(chrome.runtime.getURL('report.html')))) return;
   serial(() => command(message)).then(data => reply({ ok: true, data }), error => reply({ ok: false, error: error.message }));
   return true;
 });

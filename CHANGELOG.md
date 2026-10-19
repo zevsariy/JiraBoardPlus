@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.24.23 — 2026-10-19
+
+- Allow standalone Settings to load the Jira field catalogue without granting report-write operations.
+- Use the shared Team field setting for roadmap loads and saved plans; remove the duplicate roadmap picker and clarify the common setting. Historical snapshots keep their original field metadata.
+
 ## 0.24.22 — 2026-10-19
 
 - Use neutral styling for successful Tools messages instead of the error background; dismiss previous messages when switching tool sections.

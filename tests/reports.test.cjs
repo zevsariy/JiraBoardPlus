@@ -32,21 +32,21 @@ test('rejects truncated and inconsistent pagination', () => {
 });
 function harness() {
   let storage = {jbpReportsV1:{baseUrl:'https://jira.example.com',queries:[],results:{},jobs:{},context:'',noticeError:'',fieldNames:{}}}, replyQueue = [], calls = [], notices = [];
-  const alarms = new Map();
+  const alarms = new Map(); let handler;
   const event = () => ({ addListener() {} });
   const context = vm.createContext({ console, URL, Response, AbortSignal, crypto: require('node:crypto').webcrypto, setTimeout,
     fetch: async (url, options) => { calls.push({ url, options }); const next = replyQueue.shift(); if (!next) throw new Error('Unexpected request'); return new Response(JSON.stringify(next.body), { status: next.status || 200, headers: { 'content-type': 'application/json' } }); },
     chrome: {
       storage: { local: { get: async () => structuredClone(storage), set: async data => { storage = structuredClone(data); }, setAccessLevel: async () => {} } },
       alarms: { get: async name => alarms.get(name), create: async (name, value) => alarms.set(name, value), clear: async name => alarms.delete(name), onAlarm: event() },
-      runtime: { id: 'test', getURL: p => `chrome-extension://test/${p}`, onMessage: event(), onInstalled: event(), onStartup: event() },
+      runtime: { id: 'test', getURL: p => `chrome-extension://test/${p}`, onMessage: {addListener: fn => {handler=fn;}}, onInstalled: event(), onStartup: event() },
       action: { onClicked: event() }, tabs: { create: async () => {} },
       notifications: { onClicked: event(), create: async (id, data) => { notices.push({ id, data }); }, clear: async () => {} }
     }
   });
   context.importScripts = (...files) => files.forEach(file => vm.runInContext(fs.readFileSync(path.join(__dirname, '../src', file), 'utf8'), context));
   vm.runInContext(fs.readFileSync(path.join(__dirname, '../src/background.js'), 'utf8'), context);
-  return { run: code => vm.runInContext(code, context), queue: (...data) => { replyQueue.push(...data); }, calls, notices, alarms, get: () => structuredClone(storage.jbpReportsV1) };
+  return { message: (message,sender) => new Promise(resolve=>{if(handler(message,sender,resolve)!==true)resolve(undefined);}), run: code => vm.runInContext(code, context), queue: (...data) => { replyQueue.push(...data); }, calls, notices, alarms, get: () => structuredClone(storage.jbpReportsV1) };
 }
 const me = { body: { key: 'alice' } };
 const issue = id => ({ id: String(id), key: `DEMO-${id}`, fields: { summary: `Task ${id}`, status: { name: 'Open' } } });
@@ -140,3 +140,13 @@ test('embedded reports bridge reuses storage and disallows changing connection',
 test('embedded roadmap storage isolates current project and blocks secrets and foreign writes',async()=>{const h=harness();await h.run("write({...empty(),baseUrl:'https://jira.example',project:'DEMO'})");await h.run("globalThis.sender={id:'test',tab:{id:1},frameId:0,url:'https://jira.example/browse/D-1'}");for(const keys of ['jbpAI','jbpRoadmap:https%3A%2F%2Fjira.example:OTHER'])await assert.rejects(h.run(`embeddedMessage({type:'embeddedRoadmapStore',op:'get',keys:${JSON.stringify(keys)}},sender)`));await assert.rejects(h.run("embeddedMessage({type:'embeddedRoadmapStore',op:'set',values:{jbpAI:{key:'bad'}}},sender)"));const data=await h.run("embeddedMessage({type:'embeddedRoadmapStore',op:'get',keys:null},sender)");assert.deepEqual(Object.keys(data),[]);await assert.rejects(h.run("embeddedMessage({type:'embeddedTools',command:{op:'metricsProfile',board:'1',baseUrl:'https://other.example'}},sender)"));});
 
 test('new reports use only the configured Team field without installation-specific aliases',()=>{assert.deepEqual(R.defaultColumns('customfield_10107'),['summary','status','assignee','customfield_10107']);assert.deepEqual(R.defaultColumns(''),['summary','status','assignee']);assert.equal(R.FIELDS.customfield_10200,undefined);});
+
+ test('standalone settings may load fields, but cannot run report commands',async()=>{
+ const h=harness(),sender={id:'test',url:'chrome-extension://test/settings.html#team'};
+ h.queue({body:[{id:'customfield_10107',name:'Team'}]});
+ const r=await h.message({type:'fields'},sender);assert.equal(r.ok,true);assert.equal(r.data[0].id,'customfield_10107');
+ assert.equal(await h.message({type:'run',id:'anything'},sender),undefined);
+ assert.equal(await h.message({type:'fields'},{...sender,id:'foreign'}),undefined);
+ assert.equal(await h.message({type:'fields'},{...sender,url:'https://jira.example.com/settings.html'}),undefined);
+ assert.equal(h.calls.length,1);
+ });
