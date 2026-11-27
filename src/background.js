@@ -26,10 +26,18 @@ async function syncContent(){
   const base=JbpConnection.from(await read()).baseUrl,registered=await chrome.scripting.getRegisteredContentScripts({ids:['jbp-jira']});
   const permitted=base&&await chrome.permissions.contains({origins:[new URL(base).origin+'/*']});
   await syncNativeRefresh(base,permitted);
+  await syncJiraStyle(base,permitted);
   const matches=permitted?[base+'/secure/RapidBoard.jspa*',base+'/browse/*']:[];
   if(registered.length && JSON.stringify(registered[0].matches)===JSON.stringify(matches) && JSON.stringify(registered[0].js)===JSON.stringify(CONTENT_FILES))return;
   if(registered.length)await chrome.scripting.unregisterContentScripts({ids:['jbp-jira']});
   if(permitted)await chrome.scripting.registerContentScripts([{id:'jbp-jira',matches,js:CONTENT_FILES,runAt:'document_idle',persistAcrossSessions:true}]);
+}
+async function syncJiraStyle(base,permitted){
+  const id='jbp-jira-style',matches=permitted?[base+'/*']:[];
+  const old=await chrome.scripting.getRegisteredContentScripts({ids:[id]});
+  if(old.length&&JSON.stringify(old[0].matches)===JSON.stringify(matches))return;
+  if(old.length)await chrome.scripting.unregisterContentScripts({ids:[id]});
+  if(permitted)await chrome.scripting.registerContentScripts([{id,matches,js:['src/board-core.js','src/jira-style.js'],runAt:'document_start',persistAcrossSessions:true}]);
 }
 async function syncNativeRefresh(base,permitted){
   const id='jbp-native-refresh',matches=permitted?[base+'/secure/RapidBoard.jspa*']:[];

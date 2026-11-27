@@ -1,7 +1,23 @@
 globalThis.JbpBoard = (() => {
-  const defaults = { cardFieldsBoard: false, cardFieldsBacklog: false, cardFields: '', cardFieldsSource: 'epic', cardFieldsStyle: 'rows', cardFieldsEmpty: false, nativeRefreshMode: 'jira', nativeRefreshSeconds: 300, nativeRefreshPauseHidden: true, teamField: 'customfield_10200', parentBoard: false, parentBacklog: false, parentTypes: "Task, Story", epicLinkField: "Epic Link", componentLinkField: "Parent Link", epicFields: "", componentFields: "", privateNotes: false, backlog: false, build: false, blockedStatusNames: 'Blocked', unblockingStatusNames: 'Done, Closed, Resolved, Obsolete', buildStatusNames: 'Resolved', buildField: 'Fixed In', visuals: true, sprintTools: false, sprintExport: true, sprintAssignee: true, sprintMetrics: true, sprintHealth: true, team: true, summary: true, stale: true, unassigned: true, overdue: true, flagged: true, daily: false, scope: false, scopeOutline: true, scopeLabel: true, scopeFill: false, fillColor: '#f0eaff', borderWidth: 2, age: false, agePopup: true, color: '#8b5cf6', staleDays: 3, source: 'timepiece', calendar: 'normalHours', timeUnit: 'hours', timeMode: 'last', workStatusNames: 'In Progress', doneStatusNames: 'Done, Closed, Resolved, Obsolete', doneCategory: true };
+  const jiraStyles = [
+    ['standard','Стандартный',null],
+    ['ocean','Океан','#edf4fb','#ffffff','#deebf7','#16324f','#405d78','#0863b9','#ffffff','6px'],
+    ['forest','Лес','#edf5ef','#ffffff','#dcebe0','#193b2a','#456452','#216b43','#ffffff','8px'],
+    ['lavender','Лаванда','#f3effa','#ffffff','#e7def4','#35234e','#655078','#7044a3','#ffffff','12px'],
+    ['sand','Песок','#f7f2e8','#fffdf7','#ede3ce','#443721','#716247','#815b1f','#ffffff','4px'],
+    ['rose','Роза','#fcf0f3','#ffffff','#f6dee6','#522938','#7f5061','#ac315c','#ffffff','12px'],
+    ['mint','Мята','#eaf7f4','#ffffff','#d2eee6','#163f36','#42685e','#087761','#ffffff','10px'],
+    ['graphite','Графит','#20242b','#2b3039','#373e49','#eef1f6','#bcc5d3','#accaff','#172b4d','4px'],
+    ['midnight','Полночь','#101b30','#192942','#263a56','#e8efff','#b1c3e0','#94bdff','#132b50','8px'],
+    ['nord','Север','#242d3b','#303c4e','#3d4c61','#eef4fb','#c1cfdf','#9edce6','#173d45','6px'],
+    ['plum','Слива','#291e32','#382a44','#4b395b','#f7edff','#d4bedf','#dfb1f5','#422253','12px'],
+    ['espresso','Эспрессо','#2c241f','#3b3028','#504137','#fff4e7','#d9c4b1','#f1c28d','#422b16','4px'],
+    ['contrast','Контраст','#000000','#111111','#292929','#ffffff','#eeeeee','#ffdf60','#000000','0px']
+  ].map(([id,name,bg,surface,muted,text,subtle,accent,onAccent,radius])=>({id,name,bg,surface,muted,text,subtle,accent,onAccent,radius,dark:['graphite','midnight','nord','plum','espresso','contrast'].includes(id)}));
+  const defaults = { jiraStyle: 'standard', cardFieldsBoard: false, cardFieldsBacklog: false, cardFields: '', cardFieldsSource: 'epic', cardFieldsStyle: 'rows', cardFieldsEmpty: false, nativeRefreshMode: 'jira', nativeRefreshSeconds: 300, nativeRefreshPauseHidden: true, teamField: 'customfield_10200', parentBoard: false, parentBacklog: false, parentTypes: "Task, Story", epicLinkField: "Epic Link", componentLinkField: "Parent Link", epicFields: "", componentFields: "", privateNotes: false, backlog: false, build: false, blockedStatusNames: 'Blocked', unblockingStatusNames: 'Done, Closed, Resolved, Obsolete', buildStatusNames: 'Resolved', buildField: 'Fixed In', visuals: true, sprintTools: false, sprintExport: true, sprintAssignee: true, sprintMetrics: true, sprintHealth: true, team: true, summary: true, stale: true, unassigned: true, overdue: true, flagged: true, daily: false, scope: false, scopeOutline: true, scopeLabel: true, scopeFill: false, fillColor: '#f0eaff', borderWidth: 2, age: false, agePopup: true, color: '#8b5cf6', staleDays: 3, source: 'timepiece', calendar: 'normalHours', timeUnit: 'hours', timeMode: 'last', workStatusNames: 'In Progress', doneStatusNames: 'Done, Closed, Resolved, Obsolete', doneCategory: true };
   function validate(input) {
     const p = { ...defaults, ...input };
+    if(!jiraStyles.some(style=>style.id===p.jiraStyle))throw Error('Неизвестный стиль Jira.');
     if(!['jira','manual','auto'].includes(p.nativeRefreshMode))throw Error('Неизвестный режим обновления Jira.');
     p.nativeRefreshSeconds=Number(p.nativeRefreshSeconds);
     if(!Number.isInteger(p.nativeRefreshSeconds)||p.nativeRefreshSeconds<30||p.nativeRefreshSeconds>3600)throw Error('Интервал обновления Jira: от 30 до 3600 секунд.');
@@ -200,5 +216,5 @@ globalThis.JbpBoard = (() => {
     }
     return lines.join('\n');
   }
-  return {cardParent,cardFieldConfig,cardValue,cardFieldValues,parentList,parentKey,parentText,parentConfig,parentInfo,defaults,validate,resolveBuildField,hasBuild,statusRules,resolveStatusRules,duration,statusSince,daily,isDone,blockerKeys,blockage,formatHours,jiraTimes,addedKeys,timepieceValue,timepieceStatuses};
+  return {jiraStyles,cardParent,cardFieldConfig,cardValue,cardFieldValues,parentList,parentKey,parentText,parentConfig,parentInfo,defaults,validate,resolveBuildField,hasBuild,statusRules,resolveStatusRules,duration,statusSince,daily,isDone,blockerKeys,blockage,formatHours,jiraTimes,addedKeys,timepieceValue,timepieceStatuses};
 })();
