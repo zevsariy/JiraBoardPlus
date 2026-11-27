@@ -61,7 +61,7 @@ const assert = require('node:assert/strict');
     assert.equal((await worker.evaluate(() => globalThis.testNotices)).length, 1);
     const menu = await context.newPage();
     await menu.goto(worker.url().replace('src/background.js', 'popup.html'));
-    assert.equal(await menu.locator('input,form').count(),0);assert.equal(await menu.locator('select#theme-choice').count(),1);assert.equal(await menu.locator('#theme-choice').inputValue(),'system');assert.equal(await menu.locator('button').count(),8);
+    assert.equal(await menu.locator('input,form').count(),0);assert.equal(await menu.locator('select#theme-choice').count(),1);assert.equal(await menu.locator('#theme-choice').inputValue(),'system');assert.equal(await menu.locator('button').count(),9);
     await menu.screenshot({path:'test-output/popup-menu.png'});
     const settingsTab=context.waitForEvent('page');await menu.locator('#open-settings').click();
     const popup=await settingsTab;await popup.waitForLoadState();assert.ok(popup.url().endsWith('/settings.html'));

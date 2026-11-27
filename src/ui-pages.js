@@ -1,12 +1,12 @@
 (() => {
  const page=location.pathname.split('/').pop().replace('.html','');document.body.dataset.uiPage=page;
- const titles=[['control','Контроль команды'],['report','JQL-отчёты'],['metrics','Метрики'],['roadmap','Роадмэп'],['tools','Инструменты'],['settings','Настройки'],['help','Справка']];
+ const titles=[['diagnostics','Диагностика Jira'],['control','Контроль команды'],['report','JQL-отчёты'],['metrics','Метрики'],['roadmap','Роадмэп'],['tools','Инструменты'],['settings','Настройки'],['help','Справка']];
  if(page!=='popup'){
   const nav=document.createElement('nav');nav.className='ui-nav';nav.setAttribute('aria-label','Разделы Board Plus');for(const [id,title] of titles){const a=document.querySelector('.top .actions #'+id)||document.createElement('a');if(a.tagName==='A')a.href=id+'.html';a.textContent=title;if(id===page)a.setAttribute('aria-current','page');nav.append(a);}document.querySelector('.top')?.after(nav);
   const main=document.querySelector('main');if(main){main.id ||= 'ui-main';const skip=document.createElement('a');skip.href='#'+main.id;skip.className='ui-skip';skip.textContent='Перейти к содержимому';document.body.prepend(skip);main.tabIndex=-1;}
  }
  if(page==='popup'){
-  const paths={control:'M4 4h16v16H4z M7 12l3 3 7-7',report:'M4 3h16v18H4z M8 8h8 M8 12h8 M8 16h5',metrics:'M4 20V12 M12 20V4 M20 20V8',roadmap:'M3 5h10v4H3z M8 11h13v4H8z M5 17h10v4H5z',tools:'M4 5h16 M4 12h16 M4 19h16 M8 3v4 M16 10v4 M10 17v4','open-settings':'M12 8a4 4 0 1 0 0 8 4 4 0 0 0 0-8 M12 2v3 M12 19v3 M2 12h3 M19 12h3 M5 5l2 2 M17 17l2 2 M5 19l2-2 M17 7l2-2',onboarding:'M4 12l5 5L20 6',help:'M9 8a3 3 0 1 1 5 2c-2 1-2 2-2 4 M12 18h.01'};
+  const paths={diagnostics:'M3 12h4l3-8 4 16 3-8h4',control:'M4 4h16v16H4z M7 12l3 3 7-7',report:'M4 3h16v18H4z M8 8h8 M8 12h8 M8 16h5',metrics:'M4 20V12 M12 20V4 M20 20V8',roadmap:'M3 5h10v4H3z M8 11h13v4H8z M5 17h10v4H5z',tools:'M4 5h16 M4 12h16 M4 19h16 M8 3v4 M16 10v4 M10 17v4','open-settings':'M12 8a4 4 0 1 0 0 8 4 4 0 0 0 0-8 M12 2v3 M12 19v3 M2 12h3 M19 12h3 M5 5l2 2 M17 17l2 2 M5 19l2-2 M17 7l2-2',onboarding:'M4 12l5 5L20 6',help:'M9 8a3 3 0 1 1 5 2c-2 1-2 2-2 4 M12 18h.01'};
   for(const [id,path] of Object.entries(paths)){const button=document.getElementById(id);if(!button)continue;const svg=document.createElementNS('http://www.w3.org/2000/svg','svg');svg.setAttribute('viewBox','0 0 24 24');svg.setAttribute('aria-hidden','true');svg.setAttribute('fill','none');svg.setAttribute('stroke','currentColor');svg.setAttribute('stroke-width','1.7');svg.setAttribute('stroke-linecap','round');svg.setAttribute('stroke-linejoin','round');const p=document.createElementNS(svg.namespaceURI,'path');p.setAttribute('d',path);svg.append(p);button.prepend(svg);}
  }
  const region=document.createElement('div');region.className='ui-toast-region';region.setAttribute('aria-live','polite');document.body.append(region);let timeout,lastToast='';
