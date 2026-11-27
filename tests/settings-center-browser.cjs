@@ -8,6 +8,13 @@ const {chromium}=require('playwright'),fs=require('node:fs'),path=require('node:
   const stored=()=>worker.evaluate(async()=>(await chrome.storage.local.get('jbpBoardPrefs')).jbpBoardPrefs);
   assert.deepEqual(await stored(),original,'Opening the redesigned settings must not migrate/reset values');
   assert.equal(await page.locator('.settings-nav a').count(),9);assert.equal(await page.locator('#daily').isChecked(),true);assert.equal(await page.locator('#staleDays').inputValue(),'11');
+  const visualSwitch=page.locator('#visuals');
+  assert.equal(await visualSwitch.evaluate(el=>getComputedStyle(el).appearance),'none');
+  assert.equal(await visualSwitch.evaluate(el=>getComputedStyle(el).width),'40px');
+  const initialSwitch=await visualSwitch.isChecked();await visualSwitch.focus();await page.keyboard.press('Space');
+  assert.equal(await visualSwitch.isChecked(),!initialSwitch,'Custom switch supports Space');
+  await page.keyboard.press('Space');assert.equal(await visualSwitch.isChecked(),initialSwitch);
+  assert.match(await page.locator('#daily-settings summary').textContent(),/Задачи без обновлений/);
   await page.locator('#daily-settings summary').click();const box=await page.locator('#daily').boundingBox(),label=await page.locator('#daily').locator('..').boundingBox();assert.ok(box.x-label.x<20);assert.ok(label.height>=44);
   await page.locator('#visuals').uncheck();await page.locator('.settings-nav a[href="#team"]').click();await page.locator('#workStatusNames').fill('Doing');await page.locator('#save-main').click();await page.locator('#status').filter({hasText:'Сохранено'}).waitFor();assert.deepEqual(await stored(),{...original,workStatusNames:'Doing'},'Only changed keys in the active category are saved');
   await page.locator('.settings-nav a[href="#boards"]').click();assert.equal(await page.locator('#visuals').isChecked(),false,'Draft survives category switch');await page.locator('#cancel-main').click();assert.equal(await page.locator('#visuals').isChecked(),true);assert.equal(await page.locator('#staleDays').inputValue(),'11');

@@ -4,6 +4,8 @@
  if(page!=='popup'&&!editor){
   document.body.classList.add('ui-shell');const nav=document.createElement('nav');nav.className='ui-nav';nav.setAttribute('aria-label','Разделы Board Plus');
   const brand=document.createElement('strong');brand.className='ui-nav-brand';brand.textContent='Board Plus';nav.append(brand);
+  const mobileMenu=document.createElement('button');mobileMenu.type='button';mobileMenu.className='ui-mobile-menu';mobileMenu.textContent='Разделы';mobileMenu.setAttribute('aria-expanded','false');
+  mobileMenu.onclick=()=>{const open=nav.classList.toggle('ui-mobile-open');mobileMenu.setAttribute('aria-expanded',String(open));mobileMenu.textContent=open?'Скрыть разделы':'Разделы';};nav.append(mobileMenu);
   const collapse=document.createElement('button');collapse.className='ui-nav-collapse';collapse.type='button';collapse.setAttribute('aria-label','Свернуть или развернуть меню');collapse.textContent='‹';nav.append(collapse);
   const apply=collapsed=>{document.body.classList.toggle('ui-nav-collapsed',collapsed);collapse.setAttribute('aria-expanded',String(!collapsed));collapse.textContent=collapsed?'›':'‹';};
   try{apply(localStorage.getItem('jbpNavCollapsed')==='true');}catch{}collapse.onclick=()=>{const next=!document.body.classList.contains('ui-nav-collapsed');apply(next);try{localStorage.setItem('jbpNavCollapsed',String(next));}catch{}};
