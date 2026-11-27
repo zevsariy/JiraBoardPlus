@@ -3,7 +3,7 @@
   // Do not start observers, timers or messaging on Plans and unrelated Jira pages.
   if (!location.pathname.endsWith('/secure/RapidBoard.jspa')) return;
   const responseTimes=new WeakMap();
-  const B=JbpBoard,TTL=120000,keyPattern=/^[A-Z][A-Z0-9_]*-\d+$/;
+  const B=JbpBoard,TTL=300000,keyPattern=/^[A-Z][A-Z0-9_]*-\d+$/;
   const context=document.querySelector('meta[name="ajs-context-path"]')?.content||'';
   if(context&&!/^\/[\w/-]*$/.test(context))return;
   let prefs={...B.defaults},current='',controller,running=false,rerun=false,forceNext=false,timer,rows=new Map(),additions=new Map(),scopeAt=0,scopeError='',errors=[],bar,fetchedAt=0;
@@ -27,7 +27,41 @@
   function clearCardStyle(el){el.removeAttribute('data-jbp-added');el.removeAttribute('data-jbp-filled');for(const key of ['--jbp-added','--jbp-width','--jbp-fill'])el.style.removeProperty(key);}
   function clean(){hideTooltip();document.querySelectorAll('[data-jbp-card],[data-jbp-board]').forEach(el=>el.remove());document.querySelectorAll('[data-jbp-added],[data-jbp-filled]').forEach(clearCardStyle);bar=null;}
   const css=document.createElement('style');css.textContent='[data-jbp-added]{outline:var(--jbp-width) solid var(--jbp-added)!important;outline-offset:calc(-1 * var(--jbp-width))}[data-jbp-filled]{background-color:var(--jbp-fill)!important}[data-jbp-card]{display:block;clear:both;padding:4px 7px;pointer-events:auto!important;position:relative;z-index:2}[data-jbp-board]{display:block;clear:both;margin:6px 10px}';document.head.append(css);
-  async function get(path,signal){const res=await fetch(`${context}/rest/${path}`,{credentials:'same-origin',cache:'no-store',redirect:'error',headers:{Accept:'application/json'},signal:AbortSignal.any([signal,AbortSignal.timeout(15000)])});if(!res.ok)throw new Error(`HTTP ${res.status}: ${res.status===401?'войдите в Jira':res.status===403?'нет доступа':'данные недоступны'}`);if(!res.headers.get('content-type')?.includes('application/json'))throw new Error('Ответ не JSON: проверьте сессию Jira.');const data=await res.json(),serverTime=Date.parse(res.headers.get('date'));if(data&&typeof data==='object')responseTimes.set(data,Number.isFinite(serverTime)?serverTime+999:Date.now());return data;}
+  // The origin-wide lock also covers other Jira tabs. No issue data is stored in page storage.
+  let retryAt=0,failures=0;
+  async function get(path,signal){
+    const run=async()=>{
+      signal.throwIfAborted();
+      if(document.hidden)throw new DOMException('Вкладка скрыта','AbortError');
+      if(Date.now()<retryAt)throw new Error('Jira временно недоступна. Следующая попытка после '+new Date(retryAt).toLocaleTimeString());
+      try{
+        const res=await fetch(`${context}/rest/${path}`,{credentials:'same-origin',cache:'no-store',redirect:'error',headers:{Accept:'application/json'},signal:AbortSignal.any([signal,AbortSignal.timeout(15000)])});
+        if(!res.ok){
+          if([401,429].includes(res.status)||res.status>=500){
+            const header=res.headers.get('retry-after'),seconds=header==null?NaN:Number(header);
+            const retry=Number.isFinite(seconds)?Date.now()+seconds*1000:Date.parse(header);
+            retryAt=Math.max(Date.now()+Math.min(900000,60000*2**Math.min(failures++,4)),Number.isFinite(retry)?retry:0);
+          }
+          throw new Error(`HTTP ${res.status}: ${res.status===401?'войдите в Jira':res.status===403?'нет доступа':'данные недоступны'}`);
+        }
+        if(!res.headers.get('content-type')?.includes('application/json')){
+          retryAt=Date.now()+300000;
+          throw new Error('Ответ не JSON: проверьте сессию Jira.');
+        }
+        const data=await res.json(),serverTime=Date.parse(res.headers.get('date'));
+        failures=0;
+        if(data&&typeof data==='object')responseTimes.set(data,Number.isFinite(serverTime)?serverTime+999:Date.now());
+        return data;
+      }catch(e){
+        if(!signal.aborted&&(e.name==='TypeError'||e.name==='TimeoutError'))retryAt=Date.now()+Math.min(900000,60000*2**Math.min(failures++,4));
+        throw e;
+      }finally{
+        // Bound request rate even when Jira responds immediately (or fails fast).
+        await new Promise(resolve=>setTimeout(resolve,100));
+      }
+    };
+    return navigator.locks? navigator.locks.request('jbp-board-rest',{signal},run):run();
+  }
   async function loadScope(id, signal) {
     const result = new Map(); let start = 0;
     for (let page = 0; page < 20; page++) {
@@ -88,7 +122,7 @@
       card.append(host);
     }
     if(!prefs.summary){bar?.remove();bar=null;return;}
-    if(!bar?.isConnected){bar=document.createElement('div');bar.dataset.jbpBoard='';const root=bar.attachShadow({mode:'open'});root.innerHTML='<style>:host{font:12px "Segoe UI",sans-serif;color:#344269}.bar{display:flex;align-items:center;gap:10px;padding:7px 10px;background:#f0f2ff;border:1px solid #dfe3f4;border-radius:4px}button{font:inherit;padding:3px 8px;border:1px solid #bec5df;background:white;color:#303bea;cursor:pointer}p{margin:4px 0;color:#a32720;white-space:pre-wrap}</style><div class="bar"><span id="text" role="status"></span><button>Обновить</button></div><p id="error" role="status"></p>';globalThis.JbpUI?.mount(root,true);root.querySelector('button').onclick=()=>{forceNext=true;refresh();};pool.before(bar);}
+    if(!bar?.isConnected){bar=document.createElement('div');bar.dataset.jbpBoard='';const root=bar.attachShadow({mode:'open'});root.innerHTML='<style>:host{font:12px "Segoe UI",sans-serif;color:#344269}.bar{display:flex;align-items:center;gap:10px;padding:7px 10px;background:#f0f2ff;border:1px solid #dfe3f4;border-radius:4px}button{font:inherit;padding:3px 8px;border:1px solid #bec5df;background:white;color:#303bea;cursor:pointer}p{margin:4px 0;color:#a32720;white-space:pre-wrap}</style><div class="bar"><span id="text" role="status"></span><button>Обновить</button></div><p id="error" role="status"></p>';globalThis.JbpUI?.mount(root,true);root.querySelector('button').title='Данные обновляются автоматически раз в 5 минут, только в видимой вкладке. Обновить сейчас.';root.querySelector('button').onclick=()=>{forceNext=true;refresh();};pool.before(bar);}
     if(bar.previousElementSibling!==pool&&bar.nextElementSibling!==pool)pool.before(bar);
     const text=`Board Plus · карточек: ${visible.length}${prefs.daily?` · требуют внимания: ${attention}`:''}${prefs.scope?` · после старта: ${added}`:''} · ${running?'обновление…':fetchedAt?`обновлено ${new Date(fetchedAt).toLocaleTimeString()}`:'ожидание'}`;
     if(bar.shadowRoot.getElementById('text').textContent!==text)bar.shadowRoot.getElementById('text').textContent=text;
@@ -103,7 +137,7 @@
     const pool=cardPool();
     // Jira can temporarily detach/hide the pool while opening Details. Keep the cache.
     if(!pool||!pool.getClientRects().length||document.hidden)return;
-    draw(pool);if(running){rerun=true;return;}
+    draw(pool);if(Date.now()<retryAt)return;if(running){rerun=true;return;}
     const signature=fetchKey(prefs),keys=[...new Set(cards(pool).map(c=>c.dataset.issueKey))].slice(0,300);
     const queue=(prefs.daily||prefs.age||prefs.build||parentEnabled())?keys.filter(k=>forceNext||!rows.has(k)||rows.get(k).config!==signature||Date.now()-rows.get(k).at>=TTL):[];
     const scopeDue=prefs.scope&&(forceNext||!scopeAt||Date.now()-scopeAt>=TTL);
@@ -113,14 +147,16 @@
     try{
       if(scopeDue){try{const config=await get(`agile/1.0/board/${id}/configuration`,signal);nextScope=config.type==='kanban'?new Map():await loadScope(id,signal);nextScopeError='';}catch(e){if(signal.aborted)throw e;nextScopeError=e.message;}nextScopeAt=Date.now();}
       if(nextScopeError)nextErrors.push(`Состав спринта: ${nextScopeError}`);
+      let fieldsPromise;
+      const fields=()=>fieldsPromise||(fieldsPromise=get('api/2/field',signal));
       let buildField,buildError;
-      if(p.build&&queue.length){try{buildField=B.resolveBuildField(await get('api/2/field',signal),p.buildField);}catch(e){if(signal.aborted)throw e;buildError=e.message;}}
+      if(p.build&&queue.length){try{buildField=B.resolveBuildField(await fields(),p.buildField);}catch(e){if(signal.aborted)throw e;buildError=e.message;}}
       let parentConfig,parentError;const parentCache=new Map();
-      if(parentEnabled(p)&&queue.length){try{parentConfig=B.parentConfig(await get('api/2/field',signal),p);}catch(e){if(signal.aborted)throw e;parentError=e.message;}}
+      if(parentEnabled(p)&&queue.length){try{parentConfig=B.parentConfig(await fields(),p);}catch(e){if(signal.aborted)throw e;parentError=e.message;}}
       const fetchParent=key=>{if(!parentCache.has(key)){const fields=[...new Set(['issuetype',parentConfig.component,...parentConfig.epicFields.map(f=>f.id),...parentConfig.componentFields.map(f=>f.id)].filter(Boolean))];parentCache.set(key,get(`api/2/issue/${key}?fields=${fields.join(',')}`,signal).then(i=>{if(!i.fields)throw Error('Поля родителя недоступны');return i;}));}return parentCache.get(key);};
       const linked=new Map();
       const linkedStatus=key=>{if(!linked.has(key))linked.set(key,get(`api/2/issue/${key}?fields=status`,signal).then(v=>{if(!v.fields?.status?.name)throw new Error('Статус недоступен');return {key,status:v.fields.status};}).catch(e=>{if(signal.aborted)throw e;return {key,error:e.message};}));return linked.get(key);};
-      await Promise.all(Array.from({length:3},async()=>{while(queue.length&&!signal.aborted){const key=queue.shift();try{
+      await (async()=>{while(queue.length&&!signal.aborted&&Date.now()>=retryAt){const key=queue.shift();try{
         const fields=['issuetype',...(parentConfig?[parentConfig.epic]:[]),...(buildField?[buildField]:[]),'updated','assignee','duedate','status','created',...(p.daily&&p.flagged?['issuelinks']:[])];
         const issue=await get(`api/2/issue/${key}?fields=${fields.join(',')}${p.age&&p.source==='jira'?'&expand=changelog':''}`,signal);if(!issue.fields)throw new Error('Ответ Jira не содержит fields.');
         const entry={at:Date.now(),config:signature,source:p.source,daily:p.daily?B.daily(issue,p.staleDays,Date.now(),p):[]};
@@ -135,13 +171,14 @@
           entry.ageTitle=`${p.source==='timepiece'?'Timepiece':'Jira'} · ${issue.fields.status?.name}\n${p.timeMode==='last'?'Текущий визит (для других статусов — последний)':'Сумма всех визитов в каждый статус'} · календарь ${p.source==='timepiece'?p.calendar:'24×7'}\nДень = 24 ч, неделя = 168 ч. Данные на ${new Date(entry.at).toLocaleTimeString()}.`;
         }catch(e){if(signal.aborted)throw e;entry.ageError=e.message;}}
         nextRows.set(key,entry);
-      }catch(e){if(!signal.aborted)nextRows.set(key,{...rows.get(key),at:Date.now(),config:signature,error:e.message,ageError:e.message});}}}));
+      }catch(e){if(!signal.aborted)nextRows.set(key,{...rows.get(key),at:Date.now(),config:signature,error:e.message,ageError:e.message});}}})();
+      if(Date.now()<retryAt)nextErrors.push('Запросы приостановлены до '+new Date(retryAt).toLocaleTimeString()+'. Показаны последние доступные данные.');
       if(!signal.aborted&&current===id&&fetchKey(prefs)===signature){rows=nextRows;additions=nextScope;scopeAt=nextScopeAt;scopeError=nextScopeError;errors=nextErrors;fetchedAt=Date.now();}
     }catch(e){if(!signal.aborted)errors=[e.message];}
-    finally{running=false;const live=cardPool();if(current===id&&route()===id&&live&&!document.hidden)draw(live);if(rerun||forceNext){rerun=false;setTimeout(refresh,0);}}
+    finally{if(signal.aborted&&document.hidden&&current===id&&fetchKey(prefs)===signature){rows=nextRows;additions=nextScope;scopeAt=nextScopeAt;scopeError=nextScopeError;}running=false;const live=cardPool();if(current===id&&route()===id&&live&&!document.hidden)draw(live);if(rerun||forceNext){rerun=false;setTimeout(refresh,0);}}
   }
   function apply(value){try{const next=B.validate(value);if(fetchKey(prefs)!==fetchKey(next))controller?.abort();prefs=next;refresh();}catch(e){console.warn('Board Plus:',e.message);}}
   chrome.runtime.onMessage.addListener(m=>{if(m.type==='boardPrefsChanged')apply(m.prefs);});chrome.runtime.sendMessage({type:'boardPrefsGet'}).then(r=>{if(r?.ok)apply(r.data);}).catch(()=>{});
   new MutationObserver(records=>{if(!records.some(r=>!r.target.closest?.('[data-jbp-card],[data-jbp-board],[data-jbp-tooltip]')&&[...r.addedNodes,...r.removedNodes].some(n=>n.nodeType===1&&!n.matches?.('[data-jbp-card],[data-jbp-board],[data-jbp-tooltip]'))))return;clearTimeout(timer);timer=setTimeout(refresh,80);}).observe(document.body,{childList:true,subtree:true});
-  setInterval(refresh,15000);addEventListener('popstate',refresh);document.addEventListener('visibilitychange',refresh);
+  setInterval(refresh,15000);addEventListener('popstate',refresh);document.addEventListener('visibilitychange',()=>{if(document.hidden){controller?.abort();rerun=false;}else refresh();});
 })();

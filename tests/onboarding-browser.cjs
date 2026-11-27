@@ -3,7 +3,8 @@ const {chromium}=require('playwright'),path=require('node:path'),fs=require('nod
  const profile=fs.mkdtempSync(path.join(os.tmpdir(),'jbp-onboarding-'));
  const context=await chromium.launchPersistentContext(profile,{channel:'msedge',headless:true,args:[`--disable-extensions-except=${path.resolve(__dirname,'..')}`,`--load-extension=${path.resolve(__dirname,'..')}`],ignoreDefaultArgs:['--disable-extensions']});
  try{
- const network=[];await context.route('https://**/*',r=>{network.push(r.request().url());return r.abort();});
+ let allowSettingsFields=false;
+ const network=[];await context.route('https://**/*',r=>{if(allowSettingsFields&&r.request().url()==='https://jira.example.com/rest/api/2/field')return r.fulfill({contentType:'application/json',body:'[]'});network.push(r.request().url());return r.abort();});
  const worker=context.serviceWorkers()[0]||await context.waitForEvent('serviceworker');const base=worker.url().replace('src/background.js','');
  let page;for(let i=0;i<50;i++){page=context.pages().find(p=>p.url()===base+'onboarding.html');if(page)break;await new Promise(r=>setTimeout(r,100));}assert.ok(page,'fresh install opens wizard');
  await page.evaluate(()=>{chrome.permissions.request=async()=>true;});await worker.evaluate(()=>{chrome.permissions.contains=async()=>true;});
@@ -23,6 +24,7 @@ const {chromium}=require('playwright'),path=require('node:path'),fs=require('nod
  let stored=await worker.evaluate(()=>chrome.storage.local.get(null));assert.equal(stored.jbpReportsV1.project,'DEMO');assert.equal(stored.jbpReportsV1.queries.length,0);assert.equal(stored.jbpBoardPrefs.daily,true);assert.equal(stored.jbpBoardPrefs.borderWidth,7);assert.equal(stored.jbpBoardPrefs.blockedStatusNames,'Waiting');assert.ok(stored.jbpOnboarding.completedAt);assert.equal(stored.jbpOnboardingDraft,null);
  const scripts=await worker.evaluate(()=>chrome.scripting.getRegisteredContentScripts());assert.deepEqual(scripts[0].matches,['https://jira.example.com/*']);
  await page.goto(base+'onboarding.html');await page.locator('#wizard').waitFor();assert.equal(await page.locator('#project').inputValue(),'DEMO');assert.equal(await page.locator('#workStatusNames').inputValue(),'Doing');
+ assert.deepEqual(network,[]);allowSettingsFields=true;
  await page.locator('#project').fill('LATER');await page.locator('#later').click();await page.waitForURL('**/settings.html');assert.equal((await worker.evaluate(()=>chrome.storage.local.get('jbpReportsV1'))).jbpReportsV1.project,'DEMO');
  await page.goto(base+'help.html');assert.equal(await page.locator('section[id]').count(),13);for(const href of await page.locator('a').evaluateAll(a=>a.map(x=>x.getAttribute('href')))){if(href.startsWith('#'))assert.equal(await page.locator(href).count(),1);else assert.ok(fs.existsSync(path.resolve(__dirname,'..',href)));}
  await page.setViewportSize({width:390,height:844});await page.screenshot({path:path.join(__dirname,'../test-output/help-mobile.png'),fullPage:true});assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth));
