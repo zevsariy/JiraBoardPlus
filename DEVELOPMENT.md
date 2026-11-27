@@ -111,7 +111,7 @@ P50/P70/P80/P85: nearest rank, медиана отдельно. Выбранно
 
 ### Browser regression suite
 
-Run `npm run test:browser` after installing Playwright and Chrome / Edge. The suite runs 16 offline scenarios, continues after failures and returns a nonzero exit code if any fail. Tests use synthetic Jira responses; a successful run does not replace live integration testing. Screenshots are written to ignored `test-output/`.
+Run `npm run test:browser` after installing Playwright and Chrome / Edge. The suite runs 29 offline scenarios, continues after failures and returns a nonzero exit code if any fail. Tests use synthetic Jira responses; a successful run does not replace live integration testing. Screenshots are written to ignored `test-output/`.
 
 
 ## Нагрузка дополнений доски · 0.24.26
@@ -153,3 +153,12 @@ Run `npm run test:browser` after installing Playwright and Chrome / Edge. The su
 `src/runtime-messages.js` устанавливает Promise-обёртку только для сообщений UI расширения. Совпадающие безопасные чтения разделяют один незавершённый запрос; кеша ответов нет. Разрыв порта / канала допускает один повтор чтения; invalidated context сразу предлагает перезагрузить вкладку. Изменяющие операции, JQL run и aiAnalyze не повторяются. При неизвестном результате сохранения UI предлагает проверить состояние до повторной отправки. Быстрые boardPrefsGet, connectionGet, sprintStore profileGet/snapshotList и чтения отчётов выполняются вне serial-очереди сетевых задач; изменяющие операции остаются сериализованы. Это устраняет ожидание за медленным JQL, но не может запретить браузеру закрывать контекст при обновлении расширения или закрытии вкладки.
 
 Тесты: capacity.test.cjs / capacity-browser.cjs, card-fields.test.cjs / card-fields-browser.cjs, runtime-messages.test.cjs и проверка заблокированной serial-очереди в reports.test.cjs. Jira полностью подставная.
+
+
+### Team settings browser fixture
+
+`tests/team-settings-browser.cjs` must load `settings-center.js` before `settings.js`, as the real settings page does. The settings center creates dynamic preference controls including `jiraStyle`; omitting it leaves initialization with a null control and prevents the Team directory request. The test now checks initialization errors before waiting for the field label.
+
+Load the CSS linked by `settings.html` as well: without the combobox positioning rules its options occupy normal flow. Blurring the input then moves the save button during a click. This is a fixture layout error, not a failure of the extension's real settings page.
+
+The mock persists `boardPrefsSet` patches for subsequent `boardPrefsGet` calls, supports the theme storage read, and verifies that only `teamField` is written. The real extension settings scenario (`settings-center-browser`) separately covers real storage, section saves and preservation of existing values. `JBP_TEST_CHANNEL=chromium` selects the Playwright browser for tests that support the override (including extension-smoke); other scenarios require installed Chrome / Edge.
