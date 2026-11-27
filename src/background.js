@@ -1,4 +1,5 @@
-importScripts('connection.js', 'reports-core.js', 'board-core.js', 'sprint-core.js', 'tools-core.js', 'tools-store.js', 'notes-core.js', 'ai-core.js');
+importScripts('network-core.js', 'connection.js', 'reports-core.js', 'board-core.js', 'sprint-core.js', 'tools-core.js', 'tools-store.js', 'notes-core.js', 'ai-core.js');
+importScripts('network-worker.js', 'network-client.js');
 const R = globalThis.JbpReports;
 const STORE = 'jbpReportsV1';
 const ALARM = 'jbp-scheduler';
@@ -13,7 +14,7 @@ async function scheduleNext(state) {
 }
 let chain = Promise.resolve();
 const serial = fn => { const next = chain.then(fn); chain = next.catch(() => {}); return next; };
-const CONTENT_FILES = ["src/runtime-messages.js", "src/ui-theme.js", "src/jira-theme.js", "src/api.js", "src/team-panel.js", "src/content.js", "src/board-core.js", "src/active-board.js", "src/native-refresh.js", "src/sprint-core.js", "src/sprint-client.js", "src/sprint-capacity.js", "src/vendor/marked.umd.js", "src/ai-markdown.js", "src/ai-ui.js", "src/ai-board.js", "src/sprint-ui.js", "src/sprint-report.js", "src/private-notes.js"];
+const CONTENT_FILES = ["src/runtime-messages.js", "src/network-client.js", "src/control-core.js", "src/ui-theme.js", "src/jira-theme.js", "src/api.js", "src/team-panel.js", "src/content.js", "src/board-core.js", "src/active-board.js", "src/native-refresh.js", "src/sprint-core.js", "src/sprint-client.js", "src/sprint-capacity.js", "src/vendor/marked.umd.js", "src/ai-markdown.js", "src/ai-ui.js", "src/ai-board.js", "src/sprint-ui.js", "src/sprint-report.js", "src/private-notes.js"];
 function isJiraPage(url,base){return !!base && typeof url==='string' && url.startsWith(base+'/');}
 async function broadcastPrefs(prefs,base){if(base===undefined)base=(await read()).baseUrl;if(!base)return;const tabs=await chrome.tabs.query({url:new URL(base).origin+'/*'});await Promise.allSettled(tabs.filter(t=>isJiraPage(t.url,base)).map(t=>chrome.tabs.sendMessage(t.id,{type:'boardPrefsChanged',prefs})));}
 async function syncContent(){
@@ -52,7 +53,7 @@ async function read() { return (await chrome.storage.local.get(STORE))[STORE] ||
 async function write(state) { await chrome.storage.local.set({ [STORE]: state });await scheduleNext(state);if(chrome.tabs?.query&&state.baseUrl){const base=state.baseUrl;chrome.tabs.query({url:new URL(base).origin+'/*'}).then(tabs=>Promise.allSettled(tabs.filter(t=>isJiraPage(t.url,base)).map(t=>chrome.tabs.sendMessage(t.id,{type:'embeddedReportChanged'})))).catch(()=>{});} }
 async function request(context, path, body) {
   if(!context)throw new Error('Укажите адрес Jira в настройках или мастере.');
-  const response = await fetch(`${context}/rest/api/2/${path}`, {
+  const response = await (globalThis.JbpNetwork?.fetch || fetch)(`${context}/rest/api/2/${path}`, {
     method: body ? 'POST' : 'GET', credentials: 'include', redirect: 'error', cache: 'no-store',
     headers: { Accept: 'application/json', ...(body ? { 'Content-Type': 'application/json' } : {}) },
     ...(body ? { body: JSON.stringify(body) } : {}), signal: AbortSignal.timeout(15000)
@@ -192,6 +193,19 @@ async function command(message) {
   return state;
 }
 chrome.runtime.onMessage.addListener((message, sender, reply) => {
+  if(message.type==='networkBudget'){networkMessage(message,sender).then(data=>reply({ok:true,data}),e=>reply({ok:false,error:e.message}));return true;}
+  if(['controlRulesGet','controlRulesChanged'].includes(message.type)){
+    (async()=>{const base=JbpConnection.from(await read()).baseUrl;
+      if(sender.id!==chrome.runtime.id||!(sender.url===chrome.runtime.getURL('control.html')||isJiraPage(sender.url,base)))throw Error('Недопустимый источник.');
+      const stored=(await chrome.storage.local.get('jbpControlRules')).jbpControlRules;
+      const data=stored?.baseUrl===base?stored.rules:[];
+      if(message.type==='controlRulesChanged'){
+        if(sender.url!==chrome.runtime.getURL('control.html'))throw Error('Откройте Контроль команды.');
+        const tabs=await chrome.tabs.query({url:new URL(base).origin+'/*'});
+        await Promise.allSettled(tabs.filter(t=>isJiraPage(t.url,base)).map(t=>chrome.tabs.sendMessage(t.id,{type:'controlRulesChanged',rules:data})));
+      }return data;
+    })().then(data=>reply({ok:true,data}),e=>reply({ok:false,error:e.message}));return true;
+  }
   if(['nativeRefreshConfigure','nativeRefreshNow'].includes(message.type)){nativeRefreshMessage(message,sender).then(data=>reply({ok:true,data}),error=>reply({ok:false,error:error.message}));return true;}
   if(['embeddedOpen','embeddedConnection','embeddedStore','embeddedPage','embeddedReport','embeddedTools','embeddedPrefs','embeddedRoadmapStore'].includes(message.type)){embeddedMessage(message,sender).then(data=>reply({ok:true,data}),error=>reply({ok:false,error:error.message}));return true;}
   if(['aiGet','aiSave','aiAnalyze','aiCancel','aiBoardData'].includes(message.type)){aiMessage(message,sender).then(data=>reply({ok:true,data}),e=>reply({ok:false,error:e.message}));return true;}
@@ -255,7 +269,7 @@ chrome.runtime.onMessage.addListener((message, sender, reply) => {
   }
   if(sender.id===chrome.runtime.id && ['connectionGet','connectionSet'].includes(message.type)) {
     const page=sender.url?.split(/[?#]/)[0];
-    if(!['settings.html','onboarding.html','metrics.html','report.html','tools.html','roadmap.html'].some(name=>page===chrome.runtime.getURL(name)))return;
+    if(!['settings.html','onboarding.html','metrics.html','report.html','tools.html','roadmap.html','control.html'].some(name=>page===chrome.runtime.getURL(name)))return;
     if(message.type==='connectionSet'&&page!==chrome.runtime.getURL('settings.html'))return;
     const operation=async()=>{
       const state=await read();
@@ -329,7 +343,7 @@ async function embeddedMessage(message,sender){
  }
 
  if(message.type==='embeddedReport'){const cmd=message.command;if(!['get','save','delete','run','fields','dismissNotice','testNotice'].includes(cmd?.type))throw Error('Недопустимая операция отчёта.');return cmd.type==='get'?command(cmd):serial(()=>command(cmd));}
- if(message.type==='embeddedPage'){if(!['metrics.html','report.html','roadmap.html','tools.html','settings.html','help.html','onboarding.html'].includes(message.page))throw Error('Недопустимая страница.');await chrome.tabs.create({url:chrome.runtime.getURL(message.page)});return true;}
+ if(message.type==='embeddedPage'){if(!['metrics.html','report.html','roadmap.html','tools.html','settings.html','help.html','onboarding.html','control.html'].includes(message.page))throw Error('Недопустимая страница.');await chrome.tabs.create({url:chrome.runtime.getURL(message.page)});return true;}
  if(message.type==='embeddedStore'){
   if(message.op==='get'&&message.key==='jbpBoardPrefs')return {jbpBoardPrefs:{...JbpBoard.defaults,...(await chrome.storage.local.get('jbpBoardPrefs')).jbpBoardPrefs}};
   const prefix='jbpDashboard:'+encodeURIComponent(connection.baseUrl)+':';if(typeof message.key!=='string'||!message.key.startsWith(prefix)||message.key.length>500)throw Error('Недопустимый раздел настроек.');
@@ -338,10 +352,11 @@ async function embeddedMessage(message,sender){
  }
  const section=message.section||'metrics';if(!['metrics','report','help','roadmap','tools','settings'].includes(section))throw Error('Раздел недоступен.');
  let modules=section==='help'?[]:section==='report'?[['JbpReports','src/reports-core.js'],['JbpReportsMount','src/report.js']]:[['JbpUI','src/ui-theme.js'],['JbpBoard','src/board-core.js'],['JbpSprint','src/sprint-core.js'],['JbpSprint.Client','src/sprint-client.js'],['marked','src/vendor/marked.umd.js'],['JbpMarkdown','src/ai-markdown.js'],['JbpAIUI','src/ai-ui.js'],['JbpSprint.mountCapacity','src/sprint-capacity.js'],['JbpSprint.mount','src/sprint-ui.js'],['JbpSearchPicker','src/search-picker.js'],['JbpDashboard','src/dashboard-core.js'],['JbpDashboard.load','src/dashboard-client.js'],['JbpCharts','src/dashboard-charts.js'],['JbpDashboard.mount','src/dashboard-ui.js'],['JbpMetricsMount','src/metrics.js']];
- const common=[['JbpUI','src/ui-theme.js'],['JbpBoard','src/board-core.js'],['JbpSprint','src/sprint-core.js'],['JbpSprint.Client','src/sprint-client.js'],['JbpSearchPicker','src/search-picker.js']];
+ const common=[['JbpNetwork','src/network-client.js'],['JbpUI','src/ui-theme.js'],['JbpBoard','src/board-core.js'],['JbpSprint','src/sprint-core.js'],['JbpSprint.Client','src/sprint-client.js'],['JbpSearchPicker','src/search-picker.js']];
  if(section==='roadmap')modules=[...common,['JbpRoadmap','src/roadmap-core.js'],['JbpRoadmap.Client','src/roadmap-client.js'],['JbpRoadmap.draw','src/roadmap-view.js'],['marked','src/vendor/marked.umd.js'],['JbpMarkdown','src/ai-markdown.js'],['JbpAIUI','src/ai-ui.js'],['cytoscape','src/vendor/cytoscape.min.js'],['JbpRoadmap.createGraph','src/roadmap-graph.js'],['JbpRoadmapMount','src/roadmap.js']];
  if(section==='tools')modules=[...common,['JbpReports','src/reports-core.js'],['JbpTools','src/tools-core.js'],['JbpTools.Client','src/tools-client.js'],['JbpToolsSelection','src/tools-selection.js'],['JbpToolsMount','src/tools.js']];
  if(section==='settings')modules=[...common,['JbpConnection','src/connection.js'],['JbpSettingsMount','src/settings.js']];
+ modules.unshift(['JbpNetwork','src/network-client.js']);
  for(const [name,file] of modules){const [r]=await chrome.scripting.executeScript({target:{tabId:sender.tab.id},func:path=>{let v=globalThis;for(const part of path.split('.'))v=v?.[part];return !!v;},args:[name]});if(!r?.result)await chrome.scripting.executeScript({target:{tabId:sender.tab.id},files:[file]});}
- const html=await (await fetch(chrome.runtime.getURL(section+'.html'))).text();const css=await Promise.all(['report','brand',...({help:['guide'],roadmap:['roadmap'],tools:['tools'],settings:['settings']}[section]||['dashboard']),'ui-tokens','ui-pages','ui-jira'].map(async n=>(await fetch(chrome.runtime.getURL('src/'+n+'.css'))).text()));return {html,css:css.join('\n')};
+ const html=await (await (globalThis.JbpNetwork?.fetch || fetch)(chrome.runtime.getURL(section+'.html'))).text();const css=await Promise.all(['report','brand',...({help:['guide'],roadmap:['roadmap'],tools:['tools'],settings:['settings']}[section]||['dashboard']),'ui-tokens','ui-pages','ui-jira'].map(async n=>(await (globalThis.JbpNetwork?.fetch || fetch)(chrome.runtime.getURL('src/'+n+'.css'))).text()));return {html,css:css.join('\n')};
 }

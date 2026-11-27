@@ -37,7 +37,7 @@ function harness() {
   const context = vm.createContext({ console, URL, Response, AbortSignal, crypto: require('node:crypto').webcrypto, setTimeout,
     fetch: async (url, options) => { calls.push({ url, options }); const next = replyQueue.shift(); if (!next) throw new Error('Unexpected request'); return new Response(JSON.stringify(next.body), { status: next.status || 200, headers: { 'content-type': 'application/json' } }); },
     chrome: {
-      storage: { local: { get: async () => structuredClone(storage), set: async data => { storage = structuredClone(data); }, setAccessLevel: async () => {} } },
+      storage: { onChanged:{addListener(){}}, local: { get: async () => structuredClone(storage), set: async data => { storage = structuredClone(data); }, setAccessLevel: async () => {} } },
       alarms: { get: async name => alarms.get(name), create: async (name, value) => alarms.set(name, value), clear: async name => alarms.delete(name), onAlarm: event() },
       runtime: { id: 'test', getURL: p => `chrome-extension://test/${p}`, onMessage: {addListener: fn => {handler=fn;}}, onInstalled: event(), onStartup: event() },
       action: { onClicked: event() }, tabs: { create: async () => {} },

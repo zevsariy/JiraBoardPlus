@@ -26,7 +26,7 @@ const {chromium}=require('playwright'),path=require('node:path'),fs=require('nod
  await page.goto(base+'onboarding.html');await page.locator('#wizard').waitFor();assert.equal(await page.locator('#project').inputValue(),'DEMO');assert.equal(await page.locator('#workStatusNames').inputValue(),'Doing');
  assert.deepEqual(network,[]);allowSettingsFields=true;
  await page.locator('#project').fill('LATER');await page.locator('#later').click();await page.waitForURL('**/settings.html');assert.equal((await worker.evaluate(()=>chrome.storage.local.get('jbpReportsV1'))).jbpReportsV1.project,'DEMO');
- await page.goto(base+'help.html');assert.equal(await page.locator('section[id]').count(),13);for(const href of await page.locator('a').evaluateAll(a=>a.map(x=>x.getAttribute('href')))){if(href.startsWith('#'))assert.equal(await page.locator(href).count(),1);else assert.ok(fs.existsSync(path.resolve(__dirname,'..',href)));}
+ await page.goto(base+'help.html');assert.equal(await page.locator('section[id]').count(),14);for(const href of await page.locator('a').evaluateAll(a=>a.map(x=>x.getAttribute('href')))){if(href.startsWith('#'))assert.equal(await page.locator(href).count(),1);else assert.ok(fs.existsSync(path.resolve(__dirname,'..',href)));}
  await page.setViewportSize({width:390,height:844});await page.screenshot({path:path.join(__dirname,'../test-output/help-mobile.png'),fullPage:true});assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth));
  assert.deepEqual(network,[]);assert.deepEqual(errors,[]);console.log('Onboarding OK: install, validation, resume, review, atomic save, preserve settings, postpone, offline help and mobile layout.');
  }finally{await context.close();}

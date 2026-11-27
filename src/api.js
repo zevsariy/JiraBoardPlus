@@ -9,7 +9,7 @@ globalThis.JiraBoardPlus = (() => {
     return String(id);
   }
   class Api {
-    constructor(base = '', transport = globalThis.fetch.bind(globalThis), field = FIELD) {
+    constructor(base = '', transport = globalThis.JbpNetwork?.fetch || globalThis.fetch.bind(globalThis), field = FIELD) {
       if (base && !/^\/[\w/-]*$/.test(base)) throw new Error('Недопустимый context path');
       if (!/^customfield_\d+$/.test(field)) throw new Error('Некорректный ID поля Team');
       this.field = field;

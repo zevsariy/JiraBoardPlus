@@ -7,7 +7,7 @@
   const context=document.querySelector('meta[name="ajs-context-path"]')?.content||'';
   if(context&&!/^\/[\w/-]*$/.test(context))return;
   let prefs={...B.defaults},current='',controller,running=false,rerun=false,forceNext=false,timer,rows=new Map(),additions=new Map(),scopeAt=0,scopeError='',errors=[],bar,fetchedAt=0;
-  let tooltip,tooltipAnchor,hideTimer;
+  let tooltip,tooltipAnchor,hideTimer,controlRules=[];
   function hideTooltip(){clearTimeout(hideTimer);tooltip?.remove();tooltip=null;tooltipAnchor?.setAttribute('aria-expanded','false');tooltipAnchor=null;}
   function scheduleHide(){clearTimeout(hideTimer);hideTimer=setTimeout(hideTooltip,220);}
   function linkText(container,text){
@@ -32,9 +32,9 @@
   function planning(){return ['planning','planning.nodetail'].includes(new URL(location.href).searchParams.get('view'));}
   function cardPool(){return planning()?document.querySelector('#ghx-plan, #ghx-backlog'):document.querySelector('#ghx-pool');}
   function cards(pool){return [...pool.querySelectorAll('.ghx-issue[data-issue-key], .ghx-issue-compact[data-issue-key]')].filter(el=>keyPattern.test(el.dataset.issueKey)&&el.getClientRects().length);}
-  function clearCardStyle(el){el.removeAttribute('data-jbp-added');el.removeAttribute('data-jbp-filled');for(const key of ['--jbp-added','--jbp-width','--jbp-fill'])el.style.removeProperty(key);}
-  function clean(){hideTooltip();document.querySelectorAll('[data-jbp-card],[data-jbp-board]').forEach(el=>el.remove());document.querySelectorAll('[data-jbp-added],[data-jbp-filled]').forEach(clearCardStyle);bar=null;}
-  const css=document.createElement('style');css.textContent='[data-jbp-added]{outline:var(--jbp-width) solid var(--jbp-added)!important;outline-offset:calc(-1 * var(--jbp-width))}[data-jbp-filled]{background-color:var(--jbp-fill)!important}[data-jbp-card]{display:block;clear:both;padding:4px 7px;pointer-events:auto!important;position:relative;z-index:2}[data-jbp-board]{display:block;clear:both;margin:6px 10px}';document.head.append(css);
+  function clearCardStyle(el){el.removeAttribute('data-jbp-risk');el.style.removeProperty('--jbp-risk');el.removeAttribute('data-jbp-added');el.removeAttribute('data-jbp-filled');for(const key of ['--jbp-added','--jbp-width','--jbp-fill'])el.style.removeProperty(key);}
+  function clean(){hideTooltip();document.querySelectorAll('[data-jbp-card],[data-jbp-board]').forEach(el=>el.remove());document.querySelectorAll('[data-jbp-added],[data-jbp-filled],[data-jbp-risk]').forEach(clearCardStyle);bar=null;}
+  const css=document.createElement('style');css.textContent='[data-jbp-risk]{box-shadow:inset 5px 0 var(--jbp-risk)!important}[data-jbp-added]{outline:var(--jbp-width) solid var(--jbp-added)!important;outline-offset:calc(-1 * var(--jbp-width))}[data-jbp-filled]{background-color:var(--jbp-fill)!important}[data-jbp-card]{display:block;clear:both;padding:4px 7px;pointer-events:auto!important;position:relative;z-index:2}[data-jbp-board]{display:block;clear:both;margin:6px 10px}';document.head.append(css);
   // The origin-wide lock also covers other Jira tabs. No issue data is stored in page storage.
   let retryAt=0,failures=0;
   async function get(path,signal){
@@ -43,7 +43,7 @@
       if(document.hidden)throw new DOMException('Вкладка скрыта','AbortError');
       if(Date.now()<retryAt)throw new Error('Jira временно недоступна. Следующая попытка после '+new Date(retryAt).toLocaleTimeString());
       try{
-        const res=await fetch(`${context}/rest/${path}`,{credentials:'same-origin',cache:'no-store',redirect:'error',headers:{Accept:'application/json'},signal:AbortSignal.any([signal,AbortSignal.timeout(15000)])});
+        const res=await (globalThis.JbpNetwork?.fetch || fetch)(`${context}/rest/${path}`,{credentials:'same-origin',cache:'no-store',redirect:'error',headers:{Accept:'application/json'},signal:AbortSignal.any([signal,AbortSignal.timeout(15000)])});
         if(!res.ok){
           if([401,429].includes(res.status)||res.status>=500){
             const header=res.headers.get('retry-after'),seconds=header==null?NaN:Number(header);
@@ -94,12 +94,18 @@
 
   function cardFieldsEnabled(p=prefs){return planning()?p.cardFieldsBacklog:p.cardFieldsBoard;}
   function parentEnabled(p=prefs){return planning()?p.parentBacklog:p.parentBoard;}
-  function fetchKey(p){return JSON.stringify([cardFieldsEnabled(p),p.cardFields,p.cardFieldsSource,parentEnabled(p),p.parentTypes,p.epicLinkField,p.componentLinkField,p.epicFields,p.componentFields,p.build,p.buildField,p.buildStatusNames,p.blockedStatusNames,p.unblockingStatusNames,p.daily,p.staleDays,p.flagged,p.doneStatusNames,p.doneCategory,p.age,p.source,p.calendar,p.timeMode]);}
+  function fetchKey(p){return JSON.stringify([controlRules,cardFieldsEnabled(p),p.cardFields,p.cardFieldsSource,parentEnabled(p),p.parentTypes,p.epicLinkField,p.componentLinkField,p.epicFields,p.componentFields,p.build,p.buildField,p.buildStatusNames,p.blockedStatusNames,p.unblockingStatusNames,p.daily,p.staleDays,p.flagged,p.doneStatusNames,p.doneCategory,p.age,p.source,p.calendar,p.timeMode]);}
   function draw(pool){
     if(tooltip&&!tooltipAnchor?.isConnected)hideTooltip();
     let attention=0,added=0;const visible=cards(pool);
+    const controlIssues=[...rows.values()].map(r=>r.controlIssue).filter(Boolean);
+    const controlRows=globalThis.JbpControl&&controlRules.length?JbpControl.analyze({at:new Date().toISOString(),issues:controlIssues},{rules:controlRules,doneNames:B.parentList(prefs.doneStatusNames)}).rows:[];
+    const risks=new Map(controlRows.map(r=>[r.key,r.signals]));
     for(const card of visible){
       const key=card.dataset.issueKey,data=rows.get(key),tags=[];
+      card.removeAttribute('data-jbp-risk');card.style.removeProperty('--jbp-risk');
+      const signals=risks.get(key)||[];
+      if(signals.length){card.dataset.jbpRisk='';card.style.setProperty('--jbp-risk',signals[0].color);tags.push({type:'risk',text:'Риск: '+signals[0].name,title:signals.map(s=>s.reason).join('\n')+'\nПо данным карточек, загруженным '+new Date(data.at).toLocaleString()});}
       const scoped=prefs.scope&&additions.has(key);if(scoped)added++;
       if(scoped&&prefs.scopeOutline){card.dataset.jbpAdded='';card.style.setProperty('--jbp-added',prefs.color);card.style.setProperty('--jbp-width',`${prefs.borderWidth}px`);}else{card.removeAttribute('data-jbp-added');card.style.removeProperty('--jbp-added');card.style.removeProperty('--jbp-width');}
       if(scoped&&prefs.scopeFill){card.dataset.jbpFilled='';card.style.setProperty('--jbp-fill',prefs.fillColor);}else{card.removeAttribute('data-jbp-filled');card.style.removeProperty('--jbp-fill');}
@@ -141,7 +147,7 @@
   }
   async function refresh(){
     const id=route();
-    if(!id||!prefs.visuals||(planning()&&!prefs.backlog)||!(prefs.daily||prefs.scope||prefs.age||prefs.build||parentEnabled()||cardFieldsEnabled())){
+    if(!id||!prefs.visuals||(planning()&&!prefs.backlog)||!(prefs.daily||prefs.scope||prefs.age||prefs.build||parentEnabled()||cardFieldsEnabled()||controlRules.length)){
       controller?.abort();if(current){clean();rows.clear();additions.clear();scopeAt=0;current='';errors=[];}return;
     }
     if(current!==id){controller?.abort();clean();rows.clear();additions.clear();scopeAt=0;scopeError='';fetchedAt=0;errors=[];current=id;}
@@ -151,9 +157,9 @@
     draw(pool);if(Date.now()<retryAt)return;if(running){rerun=true;return;}
     const ttl=prefs.nativeRefreshMode==='auto'?prefs.nativeRefreshSeconds*1000:300000,auto=prefs.nativeRefreshMode!=='manual';
     const signature=fetchKey(prefs),keys=[...new Set(cards(pool).map(c=>c.dataset.issueKey))].slice(0,300);
-    const queue=(prefs.daily||prefs.age||prefs.build||parentEnabled()||cardFieldsEnabled())?keys.filter(k=>forceNext||!rows.has(k)||rows.get(k).config!==signature||(auto&&Date.now()-rows.get(k).at>=ttl)):[];
+    const queue=(prefs.daily||prefs.age||prefs.build||parentEnabled()||cardFieldsEnabled()||controlRules.length)?keys.filter(k=>forceNext||!rows.has(k)||rows.get(k).config!==signature||(auto&&Date.now()-rows.get(k).at>=ttl)):[];
     const scopeDue=prefs.scope&&(forceNext||!scopeAt||(auto&&Date.now()-scopeAt>=ttl));
-    if(!queue.length&&!scopeDue)return;
+    if(!queue.length&&!scopeDue){if(keys.length&&Date.now()-(globalThis.jbpLastCacheNotice||0)>60000){globalThis.jbpLastCacheNotice=Date.now();globalThis.JbpNetwork?.rpc({op:'cacheHit'}).catch(()=>{});}return;}
     forceNext=false;running=true;controller=new AbortController();const signal=controller.signal,p=prefs,nextRows=new Map(rows);let nextScope=additions,nextScopeAt=scopeAt,nextScopeError=scopeError;const nextErrors=[];
     if(cards(pool).length>300)nextErrors.push('Обрабатываются первые 300 карточек. Уточните фильтр доски.');draw(pool);
     try{
@@ -171,9 +177,9 @@
       const linked=new Map();
       const linkedStatus=key=>{if(!linked.has(key))linked.set(key,get(`api/2/issue/${key}?fields=status`,signal).then(v=>{if(!v.fields?.status?.name)throw new Error('Статус недоступен');return {key,status:v.fields.status};}).catch(e=>{if(signal.aborted)throw e;return {key,error:e.message};}));return linked.get(key);};
       await (async()=>{while(queue.length&&!signal.aborted&&Date.now()>=retryAt){const key=queue.shift();try{
-        const fields=['issuetype',...(cardLinks?[cardLinks.epic]:[]),...(parentConfig?[parentConfig.epic]:[]),...(buildField?[buildField]:[]),'updated','assignee','duedate','status','created',...(p.daily&&p.flagged?['issuelinks']:[])];
+        const fields=['issuetype',...(cardLinks?[cardLinks.epic]:[]),...(parentConfig?[parentConfig.epic]:[]),...(buildField?[buildField]:[]),'updated','assignee','duedate','status','created',...((p.daily&&p.flagged)||controlRules.some(r=>r.metric==='blockers')?['issuelinks']:[])];
         const issue=await get(`api/2/issue/${key}?fields=${fields.join(',')}${p.age&&p.source==='jira'?'&expand=changelog':''}`,signal);if(!issue.fields)throw new Error('Ответ Jira не содержит fields.');
-        const entry={at:Date.now(),config:signature,source:p.source,daily:p.daily?B.daily(issue,p.staleDays,Date.now(),p):[]};
+        const entry={controlIssue:{...issue,key},at:Date.now(),config:signature,source:p.source,daily:p.daily?B.daily(issue,p.staleDays,Date.now(),p):[]};
         if(cardFieldsEnabled(p)){try{if(cardError)throw Error(cardError);const parent=await B.cardParent(issue,cardLinks,p.cardFieldsSource,fetchParent);entry.cardFields=parent?B.cardFieldValues(parent.fields,cardConfig).map(f=>({...f,parent:parent.key})):cardConfig.map(f=>({name:f.name,value:'',empty:true,parentMissing:true}));}catch(e){if(signal.aborted)throw e;entry.cardFields=cardConfig.map(f=>({name:f.name,error:e.message}));}}
         if(parentEnabled(p)&&B.parentList(p.parentTypes).some(t=>t.toLowerCase()===String(issue.fields.issuetype?.name).toLowerCase())){try{if(parentError)throw Error(parentError);entry.parents=await B.parentInfo(issue,p,parentConfig,fetchParent);}catch(e){if(signal.aborted)throw e;entry.parents='Родительские поля: '+e.message;}}
         if(p.daily&&!Object.hasOwn(issue.fields,'assignee'))entry.error='Jira не вернула assignee: исполнитель неизвестен.';
@@ -193,7 +199,9 @@
     finally{if(signal.aborted&&(document.hidden||(prefs.nativeRefreshPauseHidden&&!document.hasFocus()))&&current===id&&fetchKey(prefs)===signature){rows=nextRows;additions=nextScope;scopeAt=nextScopeAt;scopeError=nextScopeError;}running=false;const live=cardPool();if(current===id&&route()===id&&live&&!document.hidden)draw(live);if(rerun||forceNext){rerun=false;setTimeout(refresh,0);}}
   }
   function apply(value){try{const next=B.validate(value);if(fetchKey(prefs)!==fetchKey(next))controller?.abort();prefs=next;refresh();}catch(e){console.warn('Board Plus:',e.message);}}
-  chrome.runtime.onMessage.addListener(m=>{if(m.type==='boardPrefsChanged')apply(m.prefs);});chrome.runtime.sendMessage({type:'boardPrefsGet'}).then(r=>{if(r?.ok)apply(r.data);}).catch(()=>{});
+  const setControlRules=value=>{try{controlRules=globalThis.JbpControl?JbpControl.rules(value):[];refresh();}catch{controlRules=[];}};
+  chrome.runtime.onMessage.addListener(m=>{if(m.type==='boardPrefsChanged')apply(m.prefs);if(m.type==='controlRulesChanged')setControlRules(m.rules);});
+  if(globalThis.JbpControl)chrome.runtime.sendMessage({type:'controlRulesGet'}).then(r=>{if(r?.ok)setControlRules(r.data);}).catch(()=>{});chrome.runtime.sendMessage({type:'boardPrefsGet'}).then(r=>{if(r?.ok)apply(r.data);}).catch(()=>{});
   new MutationObserver(records=>{if(!records.some(r=>!r.target.closest?.('[data-jbp-card],[data-jbp-board],[data-jbp-tooltip]')&&[...r.addedNodes,...r.removedNodes].some(n=>n.nodeType===1&&!n.matches?.('[data-jbp-card],[data-jbp-board],[data-jbp-tooltip]'))))return;clearTimeout(timer);timer=setTimeout(refresh,80);}).observe(document.body,{childList:true,subtree:true});
   addEventListener('focus',refresh);addEventListener('blur',()=>{if(prefs.nativeRefreshPauseHidden){controller?.abort();rerun=false;}});
   setInterval(refresh,15000);addEventListener('popstate',refresh);document.addEventListener('visibilitychange',()=>{if(document.hidden){controller?.abort();rerun=false;}else refresh();});

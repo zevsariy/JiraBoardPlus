@@ -2,7 +2,7 @@
   const T=JbpTools,S=JbpSprint;
   T.Client=class extends S.Client {
     async post(path,body,signal){
-      const res=await fetch(`${this.baseUrl}/rest/${path}`,{method:'POST',credentials:'include',redirect:'error',headers:{Accept:'application/json','Content-Type':'application/json'},body:JSON.stringify(body),signal:AbortSignal.any([signal,AbortSignal.timeout(15000)])});
+      const res=await (globalThis.JbpNetwork?.fetch || fetch)(`${this.baseUrl}/rest/${path}`,{method:'POST',credentials:'include',redirect:'error',headers:{Accept:'application/json','Content-Type':'application/json'},body:JSON.stringify(body),signal:AbortSignal.any([signal,AbortSignal.timeout(15000)])});
       if(!res.ok)throw new Error(`Jira HTTP ${res.status}: проверьте JQL, сессию и права.`);
       if(!res.headers.get('content-type')?.includes('application/json'))throw new Error('Вместо JSON получена страница входа.');
       return res.json();

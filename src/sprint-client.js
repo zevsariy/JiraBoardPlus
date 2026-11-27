@@ -21,7 +21,7 @@
       throw new Error('Не удалось загрузить полный список Jira.');
     }
     async get(path, signal) {
-      const res = await fetch(`${this.baseUrl}/rest/${path}`, { credentials: 'include', redirect: 'error', cache: 'no-store', headers: { Accept: 'application/json' }, signal: signal ? AbortSignal.any([signal, AbortSignal.timeout(15000)]) : AbortSignal.timeout(15000) });
+      const res = await (globalThis.JbpNetwork?.fetch || fetch)(`${this.baseUrl}/rest/${path}`, { credentials: 'include', redirect: 'error', cache: 'no-store', headers: { Accept: 'application/json' }, signal: signal ? AbortSignal.any([signal, AbortSignal.timeout(15000)]) : AbortSignal.timeout(15000) });
       if (!res.ok) {
         let detail = '';
         try {
