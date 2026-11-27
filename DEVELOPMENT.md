@@ -111,7 +111,7 @@ P50/P70/P80/P85: nearest rank, медиана отдельно. Выбранно
 
 ### Browser regression suite
 
-Run `npm run test:browser` after installing Playwright and Chrome / Edge. The suite runs 29 offline scenarios, continues after failures and returns a nonzero exit code if any fail. Tests use synthetic Jira responses; a successful run does not replace live integration testing. Screenshots are written to ignored `test-output/`.
+Run `npm ci`, `npx playwright install chromium`, then `npm run test:browser`. All scenarios use the Chromium version bundled with the pinned Playwright dependency; Chrome / Edge are optional overrides via `JBP_TEST_CHANNEL`. The suite runs 29 offline scenarios, continues after failures and returns a nonzero exit code if any fail. Tests use synthetic Jira responses; a successful run does not replace live integration testing. Screenshots are written to ignored `test-output/`.
 
 
 ## Нагрузка дополнений доски · 0.24.26
@@ -161,4 +161,15 @@ Run `npm run test:browser` after installing Playwright and Chrome / Edge. The su
 
 Load the CSS linked by `settings.html` as well: without the combobox positioning rules its options occupy normal flow. Blurring the input then moves the save button during a click. This is a fixture layout error, not a failure of the extension's real settings page.
 
-The mock persists `boardPrefsSet` patches for subsequent `boardPrefsGet` calls, supports the theme storage read, and verifies that only `teamField` is written. The real extension settings scenario (`settings-center-browser`) separately covers real storage, section saves and preservation of existing values. `JBP_TEST_CHANNEL=chromium` selects the Playwright browser for tests that support the override (including extension-smoke); other scenarios require installed Chrome / Edge.
+The mock persists `boardPrefsSet` patches for subsequent `boardPrefsGet` calls, supports the theme storage read, and verifies that only `teamField` is written. The real extension settings scenario (`settings-center-browser`) separately covers real storage, section saves and preservation of existing values. `JBP_TEST_CHANNEL=chromium` selects the bundled Playwright browser in every scenario and is the default. Chrome / Edge can be selected explicitly for additional compatibility checks; extension sideloading may not work in branded browsers.
+
+
+### Browser CI and release gate
+
+`.github/workflows/test.yml` runs unit tests and the complete browser suite on branch pushes, pull requests and manual dispatch. It also exposes `workflow_call` for the release workflow. Browser CI uses Ubuntu, Node.js 22, `npm ci` from the committed lockfile and `npx playwright install --with-deps chromium`; all Jira fixtures remain synthetic. Each browser scenario retains its 180-second timeout and the complete job has a 30-minute limit. A failed scenario makes the runner and job fail; no scenario is skipped or retried to hide a failure.
+
+The `browser-results-<run_id>-<attempt>` artifact contains the combined `browser-suite.log` and screenshots from `test-output/`, retained for 14 days. Upload runs even if tests fail (when the runner is still available). Tests themselves use a read-only repository token and require no secrets.
+
+`.github/workflows/release.yml` calls that same test workflow for the exact tag commit through `checks`. The publishing job has `needs: checks`: both unit and browser jobs must succeed before packaging or publishing. A failure or cancellation skips publication. Only the publishing job has `contents: write`; test jobs keep `contents: read`. Tag pushes do not start a duplicate standalone Tests run because Release already invokes it. This gate does not depend on another run's status or on the latest main commit.
+
+When updating Playwright, update package.json and package-lock.json together and install its matching Chromium build before running all scenarios. Keep the lockfile root version consistent when bumping the extension package version.

@@ -1,7 +1,7 @@
 const {chromium}=require('playwright');
 const fs=require('node:fs'),path=require('node:path'),assert=require('node:assert/strict');
 (async()=>{
- const browser=await chromium.launch({channel:'chrome',headless:true});
+ const browser=await chromium.launch({channel:process.env.JBP_TEST_CHANNEL||'chromium',headless:true});
  try{
   const context=await browser.newContext();let calls=0,active=0,peak=0,status=200;
   await context.addInitScript(()=>{

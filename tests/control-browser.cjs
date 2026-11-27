@@ -1,6 +1,6 @@
 // Full UI workflow. Every URL is intercepted; no corporate Jira or model requests.
 const {chromium}=require('playwright'),fs=require('node:fs'),path=require('node:path'),assert=require('node:assert/strict');
-(async()=>{const browser=await chromium.launch({channel:'chrome',headless:true});try{
+(async()=>{const browser=await chromium.launch({channel:process.env.JBP_TEST_CHANNEL||'chromium',headless:true});try{
   const page=await browser.newPage(),errors=[];page.on('pageerror',e=>errors.push(e.message));let calls=0;
   const now=new Date(),ago=n=>new Date(now.getTime()-n*86400000).toISOString();
   const issues=Array.from({length:8},(_,n)=>({key:`DEMO-${n+1}`,fields:{summary:n===0?'<img src=x onerror=alert(1)>':'Task '+(n+1),status:{name:n<2?'Doing':'Done',statusCategory:{key:n<2?'indeterminate':'done'}},issuetype:{name:'Task'},created:ago(20),updated:ago(5),duedate:ago(2).slice(0,10),assignee:null,description:'Описание без критериев',resolutiondate:n>=2?ago(n):null,issuelinks:[],customfield_1:{id:n%2+1},customfield_2:[],customfield_3:3},changelog:{startAt:0,total:1,histories:[{created:ago(10),items:[{field:'status',fromString:'Doing',toString:n<2?'Doing':'Done'}]}]}}));

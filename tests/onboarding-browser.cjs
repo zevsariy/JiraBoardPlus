@@ -1,7 +1,7 @@
 const {chromium}=require('playwright'),path=require('node:path'),fs=require('node:fs'),os=require('node:os'),assert=require('node:assert/strict');
 (async()=>{
  const profile=fs.mkdtempSync(path.join(os.tmpdir(),'jbp-onboarding-'));
- const context=await chromium.launchPersistentContext(profile,{channel:'msedge',headless:true,args:[`--disable-extensions-except=${path.resolve(__dirname,'..')}`,`--load-extension=${path.resolve(__dirname,'..')}`],ignoreDefaultArgs:['--disable-extensions']});
+ const context=await chromium.launchPersistentContext(profile,{channel:process.env.JBP_TEST_CHANNEL||'chromium',headless:true,args:[`--disable-extensions-except=${path.resolve(__dirname,'..')}`,`--load-extension=${path.resolve(__dirname,'..')}`],ignoreDefaultArgs:['--disable-extensions']});
  try{
  let allowSettingsFields=false;
  const network=[];await context.route('https://**/*',r=>{if(allowSettingsFields&&r.request().url()==='https://jira.example.com/rest/api/2/field')return r.fulfill({contentType:'application/json',body:'[]'});network.push(r.request().url());return r.abort();});

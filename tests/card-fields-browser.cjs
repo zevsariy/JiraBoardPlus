@@ -1,5 +1,5 @@
 const {chromium}=require('playwright'),fs=require('node:fs'),path=require('node:path'),assert=require('node:assert/strict');
-(async()=>{const browser=await chromium.launch({channel:'msedge',headless:true});try{
+(async()=>{const browser=await chromium.launch({channel:process.env.JBP_TEST_CHANNEL||'chromium',headless:true});try{
  const page=await browser.newPage({viewport:{width:1100,height:900}}),calls=[],errors=[];page.on('pageerror',e=>errors.push(e.message));
  await page.route('**/*',async route=>{const u=new URL(route.request().url());assert.equal(u.hostname,'jira.example.com');if(u.pathname.endsWith('.jspa'))return route.fulfill({contentType:'text/html',body:'<meta charset=utf-8><style>.ghx-issue{width:290px;padding:12px;margin:12px;border:1px solid #ddd;display:inline-block;vertical-align:top}</style><div id="ghx-pool"><div class="ghx-issue" data-issue-key="D-1">D-1 · Task</div><div class="ghx-issue" data-issue-key="D-2">D-2 · Task</div></div>'});calls.push(u.pathname);let data;
  if(u.pathname.endsWith('/field'))data=[{id:'customfield_1',name:'Epic Link'},{id:'customfield_2',name:'Parent Link'},{id:'duedate',name:'Due Date'},{id:'customfield_3',name:'Risk'},{id:'customfield_4',name:'Empty'},{id:'customfield_5',name:'Unavailable'}];

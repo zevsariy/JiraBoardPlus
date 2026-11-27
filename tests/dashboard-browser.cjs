@@ -1,5 +1,5 @@
 const {chromium}=require('playwright'),fs=require('node:fs'),path=require('node:path'),assert=require('node:assert/strict');
-(async()=>{const browser=await chromium.launch({channel:'msedge',headless:true});try{
+(async()=>{const browser=await chromium.launch({channel:process.env.JBP_TEST_CHANNEL||'chromium',headless:true});try{
  const page=await browser.newPage({viewport:{width:1440,height:1000}}),errors=[],calls=[];page.on('pageerror',e=>errors.push(e.message));page.setDefaultTimeout(7000);
  const ago=n=>new Date(Date.now()-n*86400000).toISOString();
  const statuses=[{id:'1',name:'Todo'},{id:'2',name:'Doing'},{id:'3',name:'Done',statusCategory:{key:'done'}},{id:'4',name:'Blocked'}];

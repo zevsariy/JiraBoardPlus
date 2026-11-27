@@ -3,7 +3,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const assert = require('node:assert/strict');
 (async () => {
-  const browser = await chromium.launch({ channel: 'chrome', headless: true });
+  const browser = await chromium.launch({ channel:process.env.JBP_TEST_CHANNEL||'chromium', headless: true });
   try {
     const page = await browser.newPage();
     const errors = [], calls = []; page.on('pageerror', e => errors.push(e.message));

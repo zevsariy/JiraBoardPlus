@@ -1,5 +1,5 @@
 const {chromium}=require('playwright'),fs=require('node:fs'),path=require('node:path'),assert=require('node:assert/strict');
-(async()=>{const browser=await chromium.launch({channel:'chrome',headless:true});try{
+(async()=>{const browser=await chromium.launch({channel:process.env.JBP_TEST_CHANNEL||'chromium',headless:true});try{
  const page=await browser.newPage({viewport:{width:1200,height:900}}),errors=[],calls=[];let blocked=true,unknown=false,hold=false,release;
  page.on('pageerror',e=>errors.push(e.message));
  await page.addInitScript(()=>{globalThis.chrome={runtime:{onMessage:{addListener(fn){globalThis.applyPrefs=prefs=>fn({type:'boardPrefsChanged',prefs});}},sendMessage:async()=>({ok:true,data:{daily:true,scope:true,age:true}})}};});

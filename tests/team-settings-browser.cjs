@@ -1,5 +1,5 @@
 const {chromium}=require('playwright'),fs=require('node:fs'),path=require('node:path'),assert=require('node:assert/strict');
-(async()=>{const browser=await chromium.launch({channel:'chrome',headless:true});let page;try{page=await browser.newPage();page.setDefaultTimeout(10000);const errors=[];page.on('pageerror',e=>errors.push(e.message));await page.route('**/*',r=>r.abort());const html=fs.readFileSync(path.join(__dirname,'../settings.html'),'utf8');await page.setContent(html.replace(/<script[\s\S]*?<\/script>/g,''));
+(async()=>{const browser=await chromium.launch({channel:process.env.JBP_TEST_CHANNEL||'chromium',headless:true});let page;try{page=await browser.newPage();page.setDefaultTimeout(10000);const errors=[];page.on('pageerror',e=>errors.push(e.message));await page.route('**/*',r=>r.abort());const html=fs.readFileSync(path.join(__dirname,'../settings.html'),'utf8');await page.setContent(html.replace(/<script[\s\S]*?<\/script>/g,''));
 // Match the real page layout: the combobox list is positioned by CSS.
 for(const [,file]of html.matchAll(/<link[^>]+href="([^"]+\.css)"[^>]*>/g))await page.addStyleTag({content:fs.readFileSync(path.join(__dirname,'..',file),'utf8')});
 await page.addScriptTag({content:fs.readFileSync(path.join(__dirname,'../src/board-core.js'),'utf8')});

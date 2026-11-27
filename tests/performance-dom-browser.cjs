@@ -1,5 +1,5 @@
 const {chromium}=require('playwright'),fs=require('node:fs'),assert=require('node:assert/strict');
-(async()=>{const browser=await chromium.launch({channel:'chrome',headless:true});try{
+(async()=>{const browser=await chromium.launch({channel:process.env.JBP_TEST_CHANNEL||'chromium',headless:true});try{
  const page=await browser.newPage(),errors=[];let requests=0;page.on('pageerror',e=>errors.push(e.message));
  await page.route('**/*',r=>{const u=new URL(r.request().url());assert.equal(u.hostname,'jira.example.com');if(u.pathname.endsWith('.jspa'))return r.fulfill({contentType:'text/html',body:'<div id="noise"></div><div id="wrap"><div id="ghx-detail-view"><a id="issuekey-val">D-1</a><div id="ghx-details"></div></div></div><div id="ghx-pool"><div class="ghx-issue" data-issue-key="D-1">One</div><div class="ghx-issue" data-issue-key="D-2">Two</div></div>'});
  requests++;const key=u.pathname.match(/issue\/(D-\d+)/)?.[1];assert.ok(key,'only mocked issue requests');return r.fulfill({contentType:'application/json',body:JSON.stringify({key,fields:{created:'2026-01-01',updated:'2026-11-27T00:00:05Z',duedate:'2020-01-01',assignee:null,status:{name:'Doing'},issuetype:{name:'Task'},issuelinks:[]}})});});

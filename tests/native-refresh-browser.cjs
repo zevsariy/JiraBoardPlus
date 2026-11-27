@@ -3,7 +3,7 @@ const {chromium}=require('playwright'),fs=require('node:fs'),path=require('node:
  const root=path.resolve(__dirname,'..'),temp=fs.mkdtempSync(path.join(os.tmpdir(),'jbp-refresh-')),extension=path.join(temp,'extension');fs.mkdirSync(extension);
  for(const name of ['src','icons',...fs.readdirSync(root).filter(n=>n.endsWith('.html'))])fs.cpSync(path.join(root,name),path.join(extension,name),{recursive:true});
  const manifest=JSON.parse(fs.readFileSync(path.join(root,'manifest.json'),'utf8'));manifest.host_permissions=['https://jira.example.test/*'];fs.writeFileSync(path.join(extension,'manifest.json'),JSON.stringify(manifest));
- const context=await chromium.launchPersistentContext(path.join(temp,'profile'),{channel:'msedge',headless:true,args:[`--disable-extensions-except=${extension}`,`--load-extension=${extension}`],ignoreDefaultArgs:['--disable-extensions']});
+ const context=await chromium.launchPersistentContext(path.join(temp,'profile'),{channel:process.env.JBP_TEST_CHANNEL||'chromium',headless:true,args:[`--disable-extensions-except=${extension}`,`--load-extension=${extension}`],ignoreDefaultArgs:['--disable-extensions']});
  try{
   const network=[],errors=[];
   await context.route('https://**/*',route=>{

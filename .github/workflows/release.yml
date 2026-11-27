@@ -3,9 +3,14 @@ on:
   push:
     tags: ['v*']
 permissions:
-  contents: write
+  contents: read
 jobs:
+  checks:
+    uses: ./.github/workflows/test.yml
   release:
+    needs: checks
+    permissions:
+      contents: write
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -17,7 +22,6 @@ jobs:
           python-version: '3.12'
       - name: Check tag and version
         run: node -e "if ('v'+require('./manifest.json').version !== process.env.GITHUB_REF_NAME) process.exit(1)"
-      - run: npm test
       - run: python scripts/package.py
       - name: Extract release notes
         run: |

@@ -3,7 +3,7 @@ const { chromium } = require('playwright');
 const fs = require('node:fs');
 const path = require('node:path');
 (async () => {
-  const browser = await chromium.launch({ channel: 'msedge', headless: true });
+  const browser = await chromium.launch({ channel:process.env.JBP_TEST_CHANNEL||'chromium', headless: true });
   try {
     const page = await browser.newPage({ viewport: { width: 128, height: 128 }, deviceScaleFactor: 1 });
     const mark = fs.readFileSync(path.join(__dirname, '../icons/board-plus.svg'), 'utf8');

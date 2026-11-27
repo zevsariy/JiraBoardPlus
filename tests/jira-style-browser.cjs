@@ -1,5 +1,5 @@
 const {chromium}=require('playwright'),fs=require('node:fs'),assert=require('node:assert/strict');
-(async()=>{const browser=await chromium.launch({channel:'msedge',headless:true});try{
+(async()=>{const browser=await chromium.launch({channel:process.env.JBP_TEST_CHANNEL||'chromium',headless:true});try{
  const page=await browser.newPage();await page.route('**/*',r=>r.abort());
  await page.setContent(`<style>body{background:rgb(244,245,247);color:rgb(23,43,77)}.ghx-issue{background:white}.aui-lozenge-success{background:rgb(0,100,0);color:white}</style><header class="aui-header"><a href="#">Проекты Jira</a></header><main><h1>Тестовая Jira</h1><div class="ghx-issue"><span class="ghx-summary">DEMO-42 · Задача</span><span class="aui-lozenge aui-lozenge-success">Готово</span></div><input aria-label="Название" value="Задача"><button class="aui-button aui-button-primary">Создать</button><div id="host"></div></main>`);
  await page.evaluate(()=>{globalThis.listeners=[];globalThis.chrome={runtime:{onMessage:{addListener:f=>listeners.push(f)},sendMessage:()=>new Promise(resolve=>globalThis.resolvePrefs=resolve)}};document.documentElement.setAttribute('data-color-mode','light');document.documentElement.style.setProperty('--original-token','preserve');});

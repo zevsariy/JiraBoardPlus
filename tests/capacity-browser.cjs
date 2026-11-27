@@ -1,5 +1,5 @@
 const {chromium}=require('playwright'),fs=require('node:fs'),path=require('node:path'),assert=require('node:assert/strict');
-(async()=>{const browser=await chromium.launch({channel:'msedge',headless:true});try{
+(async()=>{const browser=await chromium.launch({channel:process.env.JBP_TEST_CHANNEL||'chromium',headless:true});try{
  const page=await browser.newPage({viewport:{width:1100,height:900}}),calls=[],errors=[];page.on('pageerror',e=>errors.push(e.message));
  await page.route('**/*',async route=>{const u=new URL(route.request().url());assert.equal(u.hostname,'jira.example.com');if(u.pathname.endsWith('.jspa'))return route.fulfill({contentType:'text/html',body:'<meta charset=utf-8><h1 id="ghx-report-head">Sprint Report</h1>'});calls.push(u.href);let data;
  if(u.pathname.endsWith('/configuration'))data={type:'scrum',estimation:{field:{fieldId:'customfield_1',displayName:'Story Points'}}};

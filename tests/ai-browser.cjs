@@ -1,7 +1,7 @@
 const {chromium}=require('playwright'),path=require('node:path'),fs=require('node:fs'),os=require('node:os'),assert=require('node:assert/strict');
 (async()=>{
  const profile=fs.mkdtempSync(path.join(os.tmpdir(),'jbp-ai-'));
- const context=await chromium.launchPersistentContext(profile,{channel:'msedge',headless:true,args:[`--disable-extensions-except=${path.resolve(__dirname,'..')}`,`--load-extension=${path.resolve(__dirname,'..')}`],ignoreDefaultArgs:['--disable-extensions']});
+ const context=await chromium.launchPersistentContext(profile,{channel:process.env.JBP_TEST_CHANNEL||'chromium',headless:true,args:[`--disable-extensions-except=${path.resolve(__dirname,'..')}`,`--load-extension=${path.resolve(__dirname,'..')}`],ignoreDefaultArgs:['--disable-extensions']});
  try{
  await context.route('https://**/*',r=>r.abort());
  const worker=context.serviceWorkers()[0]||await context.waitForEvent('serviceworker'),base=worker.url().replace('src/background.js','');

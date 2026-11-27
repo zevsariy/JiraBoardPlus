@@ -1,5 +1,5 @@
 const {chromium}=require('playwright'),fs=require('node:fs'),path=require('node:path'),assert=require('node:assert/strict');
-(async()=>{const browser=await chromium.launch({channel:'msedge',headless:true});try{const page=await browser.newPage({viewport:{width:1440,height:1100}}),errors=[],queries=[];page.on('pageerror',e=>errors.push(e.message));page.setDefaultTimeout(8000);await page.emulateMedia({colorScheme:process.env.JBP_TEST_SCHEME||'light'});
+(async()=>{const browser=await chromium.launch({channel:process.env.JBP_TEST_CHANNEL||'chromium',headless:true});try{const page=await browser.newPage({viewport:{width:1440,height:1100}}),errors=[],queries=[];page.on('pageerror',e=>errors.push(e.message));page.setDefaultTimeout(8000);await page.emulateMedia({colorScheme:process.env.JBP_TEST_SCHEME||'light'});
 let largeLoad=false,largeCount=2000;
 const setup=async()=>{const node=page.locator('#rm-setup');if(await node.count()&&!await node.evaluate(e=>e.open))await page.locator('#rm-setup > summary').click();};
 const section=async id=>{const tab=page.locator('#rm-tab-'+id);if(await tab.isVisible()&&await tab.getAttribute('aria-selected')!=='true')await tab.click();};

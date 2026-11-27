@@ -7,7 +7,7 @@ const assert = require('node:assert/strict');
   const profile = fs.mkdtempSync(path.join(os.tmpdir(), 'jbp-extension-test-'));
   const extension = path.resolve(__dirname, '..');
   const context = await chromium.launchPersistentContext(profile, {
-    channel: process.env.JBP_TEST_CHANNEL || 'chrome', headless: true,
+    channel: process.env.JBP_TEST_CHANNEL || 'chromium', headless: true,
     args: [`--disable-extensions-except=${extension}`, `--load-extension=${extension}`],
     ignoreDefaultArgs: ['--disable-extensions']
   });
