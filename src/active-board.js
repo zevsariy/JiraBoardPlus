@@ -7,7 +7,7 @@
   const context=document.querySelector('meta[name="ajs-context-path"]')?.content||'';
   if(context&&!/^\/[\w/-]*$/.test(context))return;
   let prefs={...B.defaults},current='',controller,running=false,rerun=false,forceNext=false,timer,rows=new Map(),additions=new Map(),scopeAt=0,scopeError='',errors=[],bar,fetchedAt=0;
-  let tooltip,tooltipAnchor,hideTimer,controlRules=[];
+  let tooltip,tooltipAnchor,hideTimer,controlRules=[],riskCache;
   function hideTooltip(){clearTimeout(hideTimer);tooltip?.remove();tooltip=null;tooltipAnchor?.setAttribute('aria-expanded','false');tooltipAnchor=null;}
   function scheduleHide(){clearTimeout(hideTimer);hideTimer=setTimeout(hideTooltip,220);}
   function linkText(container,text){
@@ -33,10 +33,10 @@
   function cardPool(){return planning()?document.querySelector('#ghx-plan, #ghx-backlog'):document.querySelector('#ghx-pool');}
   function cards(pool){return [...pool.querySelectorAll('.ghx-issue[data-issue-key], .ghx-issue-compact[data-issue-key]')].filter(el=>keyPattern.test(el.dataset.issueKey)&&el.getClientRects().length);}
   function clearCardStyle(el){el.removeAttribute('data-jbp-risk');el.style.removeProperty('--jbp-risk');el.removeAttribute('data-jbp-added');el.removeAttribute('data-jbp-filled');for(const key of ['--jbp-added','--jbp-width','--jbp-fill'])el.style.removeProperty(key);}
-  function clean(){hideTooltip();document.querySelectorAll('[data-jbp-card],[data-jbp-board]').forEach(el=>el.remove());document.querySelectorAll('[data-jbp-added],[data-jbp-filled],[data-jbp-risk]').forEach(clearCardStyle);bar=null;}
+  function clean(){riskCache=null;hideTooltip();document.querySelectorAll('[data-jbp-card],[data-jbp-board]').forEach(el=>el.remove());document.querySelectorAll('[data-jbp-added],[data-jbp-filled],[data-jbp-risk]').forEach(clearCardStyle);bar=null;}
   const css=document.createElement('style');css.textContent='[data-jbp-risk]{box-shadow:inset 5px 0 var(--jbp-risk)!important}[data-jbp-added]{outline:var(--jbp-width) solid var(--jbp-added)!important;outline-offset:calc(-1 * var(--jbp-width))}[data-jbp-filled]{background-color:var(--jbp-fill)!important}[data-jbp-card]{display:block;clear:both;padding:4px 7px;pointer-events:auto!important;position:relative;z-index:2}[data-jbp-board]{display:block;clear:both;margin:6px 10px}';document.head.append(css);
   // The origin-wide lock also covers other Jira tabs. No issue data is stored in page storage.
-  let retryAt=0,failures=0;
+  let retryAt=0,failures=0,lastLocation=location.href;
   async function get(path,signal){
     const run=async()=>{
       signal.throwIfAborted();
@@ -95,20 +95,33 @@
   function cardFieldsEnabled(p=prefs){return planning()?p.cardFieldsBacklog:p.cardFieldsBoard;}
   function parentEnabled(p=prefs){return planning()?p.parentBacklog:p.parentBoard;}
   function fetchKey(p){return JSON.stringify([controlRules,cardFieldsEnabled(p),p.cardFields,p.cardFieldsSource,parentEnabled(p),p.parentTypes,p.epicLinkField,p.componentLinkField,p.epicFields,p.componentFields,p.build,p.buildField,p.buildStatusNames,p.blockedStatusNames,p.unblockingStatusNames,p.daily,p.staleDays,p.flagged,p.doneStatusNames,p.doneCategory,p.age,p.source,p.calendar,p.timeMode]);}
-  function draw(pool){
+  function cardAttribute(card,name,on){if(on){if(!card.hasAttribute(name))card.setAttribute(name,'');}else if(card.hasAttribute(name))card.removeAttribute(name);}
+  function cardProperty(card,name,value){if(value){if(card.style.getPropertyValue(name)!==value)card.style.setProperty(name,value);}else if(card.style.getPropertyValue(name))card.style.removeProperty(name);}
+  function risksForCards(){
+    if(!globalThis.JbpControl||!controlRules.length)return new Map();
+    // DOM redraws do not change issue data. Time-based rules still advance every 15 seconds.
+    const now=Date.now(),tick=Math.floor(now/15000);
+    if(!riskCache||riskCache.rows!==rows||riskCache.rules!==controlRules||riskCache.done!==prefs.doneStatusNames||riskCache.tick!==tick){
+      const issues=[...rows.values()].map(r=>r.controlIssue).filter(Boolean);
+      const analyzed=JbpControl.analyze({at:new Date(now).toISOString(),issues},{rules:controlRules,doneNames:B.parentList(prefs.doneStatusNames)}).rows;
+      riskCache={rows,rules:controlRules,done:prefs.doneStatusNames,tick,risks:new Map(analyzed.map(r=>[r.key,r.signals]))};
+    }
+    return riskCache.risks;
+  }
+  function draw(pool,visible=cards(pool)){
     if(tooltip&&!tooltipAnchor?.isConnected)hideTooltip();
-    let attention=0,added=0;const visible=cards(pool);
-    const controlIssues=[...rows.values()].map(r=>r.controlIssue).filter(Boolean);
-    const controlRows=globalThis.JbpControl&&controlRules.length?JbpControl.analyze({at:new Date().toISOString(),issues:controlIssues},{rules:controlRules,doneNames:B.parentList(prefs.doneStatusNames)}).rows:[];
-    const risks=new Map(controlRows.map(r=>[r.key,r.signals]));
+    let attention=0,added=0;const risks=risksForCards();
     for(const card of visible){
       const key=card.dataset.issueKey,data=rows.get(key),tags=[];
-      card.removeAttribute('data-jbp-risk');card.style.removeProperty('--jbp-risk');
       const signals=risks.get(key)||[];
-      if(signals.length){card.dataset.jbpRisk='';card.style.setProperty('--jbp-risk',signals[0].color);tags.push({type:'risk',text:'Риск: '+signals[0].name,title:signals.map(s=>s.reason).join('\n')+'\nПо данным карточек, загруженным '+new Date(data.at).toLocaleString()});}
+      cardAttribute(card,'data-jbp-risk',signals.length>0);cardProperty(card,'--jbp-risk',signals[0]?.color);
+      if(signals.length){tags.push({type:'risk',text:'Риск: '+signals[0].name,title:signals.map(s=>s.reason).join('\n')+'\nПо данным карточек, загруженным '+new Date(data.at).toLocaleString()});}
       const scoped=prefs.scope&&additions.has(key);if(scoped)added++;
-      if(scoped&&prefs.scopeOutline){card.dataset.jbpAdded='';card.style.setProperty('--jbp-added',prefs.color);card.style.setProperty('--jbp-width',`${prefs.borderWidth}px`);}else{card.removeAttribute('data-jbp-added');card.style.removeProperty('--jbp-added');card.style.removeProperty('--jbp-width');}
-      if(scoped&&prefs.scopeFill){card.dataset.jbpFilled='';card.style.setProperty('--jbp-fill',prefs.fillColor);}else{card.removeAttribute('data-jbp-filled');card.style.removeProperty('--jbp-fill');}
+      cardAttribute(card,'data-jbp-added',scoped&&prefs.scopeOutline);
+      cardProperty(card,'--jbp-added',scoped&&prefs.scopeOutline?prefs.color:null);
+      cardProperty(card,'--jbp-width',scoped&&prefs.scopeOutline?`${prefs.borderWidth}px`:null);
+      cardAttribute(card,'data-jbp-filled',scoped&&prefs.scopeFill);
+      cardProperty(card,'--jbp-fill',scoped&&prefs.scopeFill?prefs.fillColor:null);
       if(scoped&&prefs.scopeLabel)tags.push({type:'scope',text:'+ После старта',title:`Добавлена после старта: ${additions.get(key).join(', ')}.\nИсточник: Jira Sprint Report.${scopeError?'\nПоследние доступные данные; обновление не удалось.':''}`});
       if(data){
         if(cardFieldsEnabled()&&data.cardFields)for(const f of data.cardFields){if(!f.empty||prefs.cardFieldsEmpty)tags.push({type:'custom',tone:f.error?'unknown':'',text:f.name+': '+(f.error?'?':f.value||'Не заполнено'),title:(f.parent?f.parent+' · ':'')+f.name+'\n'+(f.error||f.value||(f.parentMissing?'Родитель не назначен':'Не заполнено')),fieldValue:f.error?'Недоступно':f.value||(f.parentMissing?'Нет родителя':'Не заполнено'),fieldName:f.name});}
@@ -143,9 +156,10 @@
     if(bar.previousElementSibling!==pool&&bar.nextElementSibling!==pool)pool.before(bar);
     const text=`Board Plus · карточек: ${visible.length}${prefs.daily?` · требуют внимания: ${attention}`:''}${prefs.scope?` · после старта: ${added}`:''} · ${running?'обновление…':fetchedAt?`обновлено ${new Date(fetchedAt).toLocaleTimeString()}`:'ожидание'}`;
     if(bar.shadowRoot.getElementById('text').textContent!==text)bar.shadowRoot.getElementById('text').textContent=text;
-    bar.shadowRoot.getElementById('error').textContent=errors.join('\n');
+    const errorText=errors.join('\n');if(bar.shadowRoot.getElementById('error').textContent!==errorText)bar.shadowRoot.getElementById('error').textContent=errorText;
   }
   async function refresh(){
+    lastLocation=location.href;
     const id=route();
     if(!id||!prefs.visuals||(planning()&&!prefs.backlog)||!(prefs.daily||prefs.scope||prefs.age||prefs.build||parentEnabled()||cardFieldsEnabled()||controlRules.length)){
       controller?.abort();if(current){clean();rows.clear();additions.clear();scopeAt=0;current='';errors=[];}return;
@@ -154,14 +168,14 @@
     const pool=cardPool();
     // Jira can temporarily detach/hide the pool while opening Details. Keep the cache.
     if(!pool||!pool.getClientRects().length||document.hidden||(prefs.nativeRefreshPauseHidden&&!document.hasFocus()))return;
-    draw(pool);if(Date.now()<retryAt)return;if(running){rerun=true;return;}
+    const visible=cards(pool);draw(pool,visible);if(Date.now()<retryAt)return;if(running){rerun=true;return;}
     const ttl=prefs.nativeRefreshMode==='auto'?prefs.nativeRefreshSeconds*1000:300000,auto=prefs.nativeRefreshMode!=='manual';
-    const signature=fetchKey(prefs),keys=[...new Set(cards(pool).map(c=>c.dataset.issueKey))].slice(0,300);
+    const signature=fetchKey(prefs),keys=[...new Set(visible.map(c=>c.dataset.issueKey))].slice(0,300);
     const queue=(prefs.daily||prefs.age||prefs.build||parentEnabled()||cardFieldsEnabled()||controlRules.length)?keys.filter(k=>forceNext||!rows.has(k)||rows.get(k).config!==signature||(auto&&Date.now()-rows.get(k).at>=ttl)):[];
     const scopeDue=prefs.scope&&(forceNext||!scopeAt||(auto&&Date.now()-scopeAt>=ttl));
     if(!queue.length&&!scopeDue){if(keys.length&&Date.now()-(globalThis.jbpLastCacheNotice||0)>60000){globalThis.jbpLastCacheNotice=Date.now();globalThis.JbpNetwork?.rpc({op:'cacheHit'}).catch(()=>{});}return;}
     forceNext=false;running=true;controller=new AbortController();const signal=controller.signal,p=prefs,nextRows=new Map(rows);let nextScope=additions,nextScopeAt=scopeAt,nextScopeError=scopeError;const nextErrors=[];
-    if(cards(pool).length>300)nextErrors.push('Обрабатываются первые 300 карточек. Уточните фильтр доски.');draw(pool);
+    if(visible.length>300)nextErrors.push('Обрабатываются первые 300 карточек. Уточните фильтр доски.');draw(pool,visible);
     try{
       if(scopeDue){try{const config=await get(`agile/1.0/board/${id}/configuration`,signal);nextScope=config.type==='kanban'?new Map():await loadScope(id,signal);nextScopeError='';}catch(e){if(signal.aborted)throw e;nextScopeError=e.message;}nextScopeAt=Date.now();}
       if(nextScopeError)nextErrors.push(`Состав спринта: ${nextScopeError}`);
@@ -202,7 +216,21 @@
   const setControlRules=value=>{try{controlRules=globalThis.JbpControl?JbpControl.rules(value):[];refresh();}catch{controlRules=[];}};
   chrome.runtime.onMessage.addListener(m=>{if(m.type==='boardPrefsChanged')apply(m.prefs);if(m.type==='controlRulesChanged')setControlRules(m.rules);});
   if(globalThis.JbpControl)chrome.runtime.sendMessage({type:'controlRulesGet'}).then(r=>{if(r?.ok)setControlRules(r.data);}).catch(()=>{});chrome.runtime.sendMessage({type:'boardPrefsGet'}).then(r=>{if(r?.ok)apply(r.data);}).catch(()=>{});
-  new MutationObserver(records=>{if(!records.some(r=>!r.target.closest?.('[data-jbp-card],[data-jbp-board],[data-jbp-tooltip]')&&[...r.addedNodes,...r.removedNodes].some(n=>n.nodeType===1&&!n.matches?.('[data-jbp-card],[data-jbp-board],[data-jbp-tooltip]'))))return;clearTimeout(timer);timer=setTimeout(refresh,80);}).observe(document.body,{childList:true,subtree:true});
+  const poolSelector='#ghx-pool, #ghx-plan, #ghx-backlog',ownedSelector='[data-jbp-card],[data-jbp-board],[data-jbp-tooltip]';
+  const containsPool=node=>node.nodeType===1&&(node.matches(poolSelector)||node.querySelector(poolSelector));
+  new MutationObserver(records=>{
+    if(document.hidden)return;
+    const relevant=location.href!==lastLocation||records.some(r=>{
+      if(r.target.closest?.(ownedSelector))return false;
+      if(r.type==='attributes')return r.target.closest?.(poolSelector)||containsPool(r.target);
+      const changed=[...r.addedNodes,...r.removedNodes].filter(n=>n.nodeType===1);
+      // A removed card host must be restored, but our own insertions need no redraw.
+      if(r.target.closest?.(poolSelector))return changed.some(n=>!n.matches(ownedSelector))||[...r.removedNodes].some(n=>n.matches?.('[data-jbp-card]'));
+      return changed.some(containsPool);
+    });
+    if(!relevant||timer)return;
+    timer=setTimeout(()=>{timer=null;refresh();},80);
+  }).observe(document.body,{childList:true,subtree:true,attributes:true,attributeFilter:['data-issue-key','id']});
   addEventListener('focus',refresh);addEventListener('blur',()=>{if(prefs.nativeRefreshPauseHidden){controller?.abort();rerun=false;}});
   setInterval(refresh,15000);addEventListener('popstate',refresh);document.addEventListener('visibilitychange',()=>{if(document.hidden){controller?.abort();rerun=false;}else refresh();});
 })();

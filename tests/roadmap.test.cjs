@@ -126,3 +126,15 @@ test('compact AI preserves exact JSON budget with escaped text and dependency ov
  expected.omittedDependencies=m.edges.length-expected.dependencies.length;expected.coverage=actual.coverage;
  assert.deepEqual(actual,expected);assert.ok(actual.omittedIssues>0);assert.ok(actual.omittedDependencies>0);
 });
+
+test('dependency traversal handles 12000-node cycles without recursion and excludes an acyclic tail',()=>{
+ const raw=Array.from({length:12001},(_,i)=>{const value=issue('D-'+i);value.fields.issuelinks=i?[block('D-'+(i-1))]:[];return {issue:value,level:0};});
+ raw[0].issue.fields.issuelinks=[block('D-11999')];
+ const model=R.build(raw,c,prefs);assert.equal(model.cycles.length,12000);assert.equal(model.nodes[12000].cycle,false);assert.ok(model.nodes.slice(0,12000).every(n=>n.cycle));
+});
+test('dependency cycles preserve branch order, self loops, duplicate edges and unknown endpoints',()=>{
+ const a=issue('D-1'),b=issue('D-2'),d=issue('D-3'),e=issue('D-4');
+ a.fields.issuelinks=[block('D-3'),block('D-9')];b.fields.issuelinks=[block('D-1'),block('D-1')];d.fields.issuelinks=[block('D-2')];e.fields.issuelinks=[block('D-4')];
+ const model=R.build([a,b,d,e].map(issue=>({issue,level:0})),c,prefs);
+ assert.deepEqual(new Set(model.cycles),new Set(['D-1','D-2','D-3','D-4']));assert.equal(model.cycles.length,4);assert.ok(!model.cycles.includes('D-9'));
+});

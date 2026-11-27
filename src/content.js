@@ -5,7 +5,8 @@
   const app = globalThis.JiraBoardPlus;
   const context = document.querySelector('meta[name="ajs-context-path"]')?.content || '';
   let api = new app.Api(context);
-  let active = null, timer;
+  let active = null, timer, lastHref = location.href;
+  const panelSelector = '#ghx-detail-view, #ghx-detail-contents';
   let enabled = false;
   const applyPrefs = prefs => { const field = prefs.teamField || app.FIELD; if (field !== api.field) { active?.cleanup.forEach(fn => fn()); active = null; api = new app.Api(context, globalThis.fetch.bind(globalThis), field); } enabled = prefs.visuals !== false && prefs.team !== false; sync(); };
   chrome.runtime.onMessage.addListener(message => { if (message.type === 'boardPrefsChanged') applyPrefs(message.prefs); });
@@ -22,7 +23,7 @@
     if (!enabled) return null;
     const url = new URL(location.href);
     if (!url.pathname.endsWith('/secure/RapidBoard.jspa') || !['planning','planning.nodetail','work','detail',null].includes(url.searchParams.get('view'))) return null;
-    const panel = [...document.querySelectorAll('#ghx-detail-view, #ghx-detail-contents')].find(el => el.getClientRects().length && getComputedStyle(el).visibility !== 'hidden');
+    const panel = [...document.querySelectorAll(panelSelector)].find(el => el.getClientRects().length && getComputedStyle(el).visibility !== 'hidden');
     if (!panel) return null;
     const link = panel.querySelector('#issuekey-val, .ghx-key a, a.issue-link[data-issue-key], a[href*="/browse/"]');
     const key = link?.getAttribute('data-issue-key') || link?.textContent.trim();
@@ -33,6 +34,8 @@
     return target ? { panel, key, target } : null;
   }
   function sync() {
+    if (document.hidden) return;
+    lastHref = location.href;
     const next = detect();
     if (active && next?.panel === active.panel && next.key === active.key && next.target === active.target && active.target.querySelector('[data-jbp]')) return;
     active?.cleanup.forEach(fn => fn()); active = null;
@@ -41,9 +44,22 @@
     const isCurrent = () => { const now = detect(); return active === state && now?.panel === state.panel && now?.key === state.key; };
     state.cleanup = app.features.map(feature => feature.mount({ ...next, api, isCurrent }));
   }
-  const schedule = () => { clearTimeout(timer); timer = setTimeout(sync, 120); };
-  new MutationObserver(schedule).observe(document.body, { childList: true, subtree: true, attributes: true, attributeFilter: ['class', 'style', 'data-issue-key'] });
+  const schedule = () => { if (document.hidden || timer) return; timer = setTimeout(() => { timer = null; sync(); }, 120); };
+  const containsPanel = node => node.nodeType === 1 && (node.matches(panelSelector) || node.querySelector(panelSelector));
+  new MutationObserver(records => {
+    if (!enabled || document.hidden) return;
+    if (location.href !== lastHref || records.some(r => {
+      const target = r.target.nodeType === 1 ? r.target : r.target.parentElement;
+      // Ignore changes inside our UI, but still remount if Jira removes its host.
+      if (target?.closest('[data-jbp]')) return false;
+      if (target?.closest(panelSelector) || target === active?.panel) return true;
+      if (r.type === 'attributes') return containsPanel(target);
+      return [...r.addedNodes, ...r.removedNodes].some(containsPanel);
+    })) schedule();
+  }).observe(document.body, { childList: true, subtree: true, characterData: true, attributes: true, attributeFilter: ['class', 'style', 'data-issue-key', 'id'] });
   addEventListener('popstate', schedule);
-  setInterval(sync, 1000); // Jira's pushState navigation does not emit popstate.
+  // Poll only the URL: pushState has no event, and DOM changes are observed above.
+  setInterval(() => { if (location.href !== lastHref) schedule(); }, 1000);
+  document.addEventListener('visibilitychange', () => { if (!document.hidden) sync(); });
   sync();
 })();

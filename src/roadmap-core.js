@@ -76,7 +76,20 @@ globalThis.JbpRoadmap = (() => {
     const e={from:l.inwardIssue.key,to:target.key,clear,conflict,unknown:!source||source.end==null||target.start==null,external:!source||source.external};edges.push(e);target.dependencies.push(e);
    }}
   // Dependency cycles are reported without trying to automatically reschedule work.
-  const graph=new Map(),visiting=new Set(),visited=new Set(),cycles=new Set();for(const e of edges){const list=graph.get(e.from)||[];list.push(e.to);graph.set(e.from,list);}function visit(k,path=[]){if(visiting.has(k)){path.slice(path.indexOf(k)).forEach(x=>cycles.add(x));return;}if(visited.has(k))return;visiting.add(k);for(const next of graph.get(k)||[])visit(next,[...path,k]);visiting.delete(k);visited.add(k);}for(const k of graph.keys())visit(k);
+  const graph=new Map(),visited=new Set(),active=new Map(),cycles=new Set();
+  for(const e of edges){const list=graph.get(e.from)||[];list.push(e.to);graph.set(e.from,list);}
+  // Keep one mutable DFS path instead of copying it per edge or using the JS call stack.
+  for(const root of graph.keys()){
+   if(visited.has(root))continue;
+   const stack=[{key:root,index:0}];active.set(root,0);
+   while(stack.length){
+    const frame=stack[stack.length-1],next=graph.get(frame.key)||[];
+    if(frame.index===next.length){active.delete(frame.key);visited.add(frame.key);stack.pop();continue;}
+    const key=next[frame.index++];
+    if(active.has(key)){for(let i=active.get(key);i<stack.length;i++)cycles.add(stack[i].key);}
+    else if(!visited.has(key)){active.set(key,stack.length);stack.push({key,index:0});}
+   }
+  }
   const today=day(new Date(now).toISOString());
   function descendants(n){return [n,...n.children.flatMap(descendants)];}
   for(const root of roots){const all=descendants(root);root.lateDays=root.due!=null&&root.end!=null?Math.max(0,Math.ceil((root.end-root.due)/DAY)):0;root.overdue=root.due!=null&&root.due<today&&all.some(n=>!n.done);root.risk=root.lateDays||root.overdue?'late':root.due==null||root.unknown?'unknown':'ok';for(const n of all){n.root=root.key;n.rootDue=root.due;n.late=n.end!=null&&root.due!=null&&n.end>root.due;n.cycle=cycles.has(n.key);}}
