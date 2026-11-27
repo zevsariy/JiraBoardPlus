@@ -33,7 +33,7 @@
   $('mode').textContent=mode==='kanban'?'KANBAN':'SCRUM';$('history-title').textContent=mode==='kanban'?'Kanban · поток за период':'Поток задач доски за период';$('trend-toggle').hidden=mode!=='scrum';
   const analyticsHost=el('div');$('data').prepend(analyticsHost);$('section-overview').before(settings);
   const legacyNote=el('p','Дополнительные отчёты ниже используют общие правила статусов Jira и календарное время 24×7. Настраиваемые процессы показаны на дашборде выше.');settings.before(legacyNote);
-  const analytics=globalThis.JbpAnalyticsUI?.mount(analyticsHost,{store,key:storageKey+':analytics',mode,select:drill,onTrend:()=>{$('section-trend').open=true;$('load-trend').click();}});
+  const analytics=globalThis.JbpAnalyticsUI?.mount(analyticsHost,{store,key:storageKey+':analytics',mode,baseUrl:client.baseUrl,getFilters:()=>({type:$('type').value,subtasks:$('subtasks').checked}),select:drill,onTrend:()=>{$('section-trend').open=true;$('load-trend').click();}});
   const chartKeys=['weekly','aging','status','scatter','plan','recurring'];
   const percentile=()=>Number($('percentile').value)||85;
   for(const key of ['plan','recurring'])$('chart-'+key+'-label').hidden=mode!=='scrum';

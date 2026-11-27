@@ -2,13 +2,13 @@
 globalThis.JbpAnalyticsUI=(()=>{
  const A=JbpAnalytics,C=JbpAnalyticsCharts;
  const rules={final:'Полный цикл с возвратами',first:'Первое прохождение',each:'Каждое прохождение отдельно'};
- function mount(host,{store,key,mode,select,onTrend}){
+ function mount(host,{store,key,mode,select,onTrend,baseUrl,getFilters}){
   const doc=host.ownerDocument,el=(tag,text,cls)=>{const n=doc.createElement(tag);if(text!=null)n.textContent=text;if(cls)n.className=cls;return n;};
   let data,rows=[],datasets=[],saved=null,current=null,disposed=false,editing=null,returnFocus=null,busy=false;
   const loaded=store.get(key).then(s=>{if(s[key])saved=A.profile(s[key]);}).catch(e=>{message.textContent='Профиль не загружен: '+e.message;});
   const heading=el('div',null,'analytics-heading'),intro=el('div');intro.append(el('h2','Аналитика команды'),el('p','От скорости поставки до конкретной задачи. Настройки сохраняются для этой доски.'));
   const actions=el('div',null,'actions'),newButton=button('Создать метрику',()=>edit(null)),configure=button('Процесс и календарь',()=>edit(current.metrics.find(m=>m.id===current.primary)));
-  newButton.className='primary';actions.append(configure,newButton);heading.append(intro,actions);
+  newButton.className='primary';actions.append(configure,newButton,button('Поделиться отчётом',()=>{if(data&&current)JbpMetricsExportUI.open(host,{data,rows,profile:current,datasets,baseUrl,filters:getFilters?.()});}));heading.append(intro,actions);
   const message=el('p');message.id='analytics-status';message.setAttribute('role','status');
   const templates=el('div',null,'analytics-toolbar');templates.setAttribute('aria-label','Шаблоны дашборда');
   const kanban=button('Kanban',()=>applyTemplate('kanban')),scrum=button('Scrum',()=>applyTemplate('scrum'));
