@@ -9,7 +9,12 @@ globalThis.JbpAnalyticsCharts=(()=>{
   const svg=node('svg',{viewBox:`0 0 ${w} ${h}`,role:'group','aria-label':title}),y=v=>b-(b-t)*v/max,x=i=>xValues&&xRange?l+(r-l)*(xValues[i]-xRange.start)/(xRange.end-xRange.start):kind==='bar'?l+(r-l)*(i+.5)/labels.length:l+(r-l)*(labels.length===1?.5:i/(labels.length-1));
   host.append(svg);for(let i=0;i<=4;i++){const value=max*i/4;svg.append(node('line',{x1:l,y1:y(value),x2:r,y2:y(value),class:'analytics-grid-line'}),node('text',{x:l-8,y:y(value)+4,'text-anchor':'end'},fmt(value)));}
   svg.append(node('text',{x:5,y:14},unit));
-  const stride=Math.max(1,Math.ceil(labels.length/6));labels.forEach((label,i)=>{if(i%stride===0||i===labels.length-1)svg.append(node('text',{x:x(i),y:b+23,'text-anchor':'middle'},String(label).slice(0,16)));});
+  // Measure text independently of DOM attachment (widgets are drawn before mounting), reserve the final label, and omit colliding ticks.
+  const measure=document.createElement('canvas').getContext('2d');measure.font='12px system-ui';svg.style.font=measure.font;
+  const compact=value=>{const text=String(value),date=text.match(/^(?:\d{4}-)?(\d{2})-(\d{2})\s*(\*?)$/);if(date)return date[2]+'.'+date[1]+date[3];const range=text.match(/^([\d.]+)–([\d.]+) ч$/);return range?fmt(Number(range[1]))+'–'+fmt(Number(range[2]))+' ч':text;};
+  const ticks=labels.map((label,i)=>{const text=compact(label),width=measure.measureText(text).width,center=Math.max(l+width/2,Math.min(r-width/2,x(i))),tick=node('text',{x:center,y:b+23,'text-anchor':'middle',class:'analytics-x-label'},text);tick.append(node('title',{},String(label)));svg.append(tick);return {tick,left:center-width/2,right:center+width/2};});
+  const last=ticks.at(-1);let edge=-Infinity;for(let i=0;i<ticks.length;i++){const item=ticks[i],isLast=i===ticks.length-1;if(item.left<edge+14||!isLast&&item.right+14>last.left){item.tick.remove();continue;}edge=item.right;}
+
   function mark(el,label,items){el.classList.add('analytics-mark');el.setAttribute('tabindex','0');el.setAttribute('role','button');el.setAttribute('aria-label',label);el.append(node('title',{},label));el.onclick=()=>select(label,items||[]);el.onkeydown=e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();select(label,items||[]);}};svg.append(el);}
   let sums=labels.map(()=>0);
   series.forEach((s,j)=>{const color=palette[j%palette.length],valid=s.values.map((v,i)=>({v,i})).filter(p=>Number.isFinite(p.v));

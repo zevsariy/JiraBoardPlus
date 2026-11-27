@@ -26,6 +26,7 @@ const {chromium}=require('playwright'),fs=require('node:fs'),path=require('node:
  await page.getByRole('button',{name:'Создать метрику',exact:true}).click();
  await page.locator('#metric-name').fill('Разработка до поставки');
  await page.locator('#metric-rule').selectOption('each');
+ for(const id of ['metric-extra','metric-calendar-section','metric-example']){assert.equal(await page.locator('#'+id).getAttribute('open'),null);await page.locator('#'+id+' > summary').click();}
  await page.locator('#metric-calendar').selectOption('business');
  await page.locator('#metric-zone').fill('Europe/Moscow');
  await page.locator('#metric-day-start').fill('09:00');await page.locator('#metric-day-end').fill('18:00');
@@ -65,5 +66,7 @@ const {chromium}=require('playwright'),fs=require('node:fs'),path=require('node:
  const scopeValues=await page.locator('[data-widget="burnup"] svg [aria-label*="Объём спринта"]').evaluateAll(nodes=>nodes.map(n=>n.getAttribute('aria-label')));assert.ok(scopeValues.some(s=>s.includes(': 0 ')));assert.ok(scopeValues.some(s=>s.includes(': 1 ')));
  await page.locator('[data-widget="velocity"] select').selectOption('SP');assert.ok(await page.locator('[data-widget="velocity"] [aria-label*="5 SP"]').count()>0);
  await page.locator('.analytics-workspace').evaluate(e=>e.scrollIntoView({block:'start'}));await page.screenshot({path:'test-output/analytics-scrum.png'});
+ const axisCheck=await page.evaluate(()=>{const host=document.createElement('div');host.style.width='460px';const fixtures=[Array.from({length:90},(_,i)=>'2026-11-'+String(1+Math.floor(i/3)).padStart(2,'0')),Array.from({length:10},(_,i)=>`${i*63}.0–${(i+1)*63}.0 ч`),Array.from({length:12},(_,i)=>'Очень длинный спринт '+i)];const results=[];for(const labels of fixtures){JbpAnalyticsCharts.draw(host,{title:'Проверка оси',kind:'bar',labels,series:[{name:'Значение',values:labels.map((_,i)=>i+1)}]});document.body.append(host);const boxes=[...host.querySelectorAll('.analytics-x-label')].map(n=>n.getBBox());results.push({count:boxes.length,overlap:boxes.some((box,i)=>i>0&&box.x<boxes[i-1].x+boxes[i-1].width+10),rows:host.querySelectorAll('table tr').length,expected:labels.length+1});host.remove();}host.remove();return results;});
+ for(const result of axisCheck){assert.ok(result.count>=2);assert.equal(result.overlap,false);assert.equal(result.rows,result.expected);}
  assert.deepEqual(errors,[]);console.log('Analytics UI: custom metric, calendar, preview, invalid states, cancellation, local recalculation, views, keyboard, persistence, failed storage, export, deletion and both themes/mobile passed.');
 }finally{await browser.close();}})().catch(e=>{console.error(e);process.exitCode=1;});
