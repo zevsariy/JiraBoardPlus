@@ -51,7 +51,8 @@ globalThis.JbpTools = (() => {
     const profiles=Object.entries(input.profiles||{});if(profiles.length>100)throw new Error('Допустимо до 100 досок.');
     const cleanProfiles=Object.fromEntries(profiles.map(([id,p])=>{if(!/^\d+$/.test(id))throw new Error('Некорректный ID доски.');return[id,JbpSprint.profile(p)];}));
     const visual=Object.fromEntries(Object.keys(JbpBoard.defaults).filter(k=>Object.hasOwn(input.visual||{},k)).map(k=>[k,input.visual[k]]));
-    return {schema:input.schema,origin:input.origin,context,visual:JbpBoard.validate(visual),refinement:settings(input.refinement),profiles:cleanProfiles,queries:input.queries.map(q=>({...JbpReports.validate(q),enabled:false}))};
+    const validated=JbpBoard.validate(visual);
+    return {schema:input.schema,origin:input.origin,context,visual:Object.fromEntries(Object.keys(visual).map(k=>[k,validated[k]])),refinement:settings(input.refinement),profiles:cleanProfiles,queries:input.queries.map(q=>({...JbpReports.validate(q),enabled:false}))};
   }
   return {rules,settings,inspect,transfers,bundle};
 })();

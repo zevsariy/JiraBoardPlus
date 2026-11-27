@@ -21,4 +21,6 @@ test('AI worker guards sender, secrets, toggles, failures and cancellation; requ
  fetchImpl=async()=>new Response('secret diagnostic',{status:401});await assert.rejects(call(msg),e=>e.message.includes('401')&&!e.message.includes('secret'));
  fetchImpl=async(u,o)=>new Promise((resolve,reject)=>o.signal.addEventListener('abort',()=>reject(Error('abort'))));const pending=call(msg);await new Promise(r=>setTimeout(r,10));await call({type:'aiCancel',id:'1'});await assert.rejects(pending,/120/);
  await call({type:'aiSave',config:{enabled:false,clearKey:true}},settings);assert.equal(state.jbpAI.key,'');
+ await Promise.all([call({type:'aiSave',config:{enabled:false,key:'new-key'}},settings),call({type:'aiSave',config:{enabled:false,model:'parallel-edit'}},settings)]);assert.equal(state.jbpAI.key,'new-key','Concurrent settings save must preserve the newly saved key');
+ await Promise.all([call({type:'aiSave',config:{enabled:false,clearKey:true}},settings),call({type:'aiSave',config:{enabled:false,model:'parallel-edit'}},settings)]);assert.equal(state.jbpAI.key,'','Concurrent save must not resurrect a deleted key');
 });

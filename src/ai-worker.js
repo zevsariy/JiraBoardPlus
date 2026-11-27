@@ -1,4 +1,5 @@
 const aiRequests=new Map();
+let aiSettingsQueue=Promise.resolve();
 async function aiMessage(m,sender){
   if(sender.url?.startsWith(chrome.runtime.getURL('')))sender={...sender,url:sender.url.split(/[?#]/)[0]};
   const settings=sender.url===chrome.runtime.getURL('settings.html');
@@ -11,9 +12,13 @@ async function aiMessage(m,sender){
   if(m.type==='aiGet')return {enabled:false,board:true,sprint:true,...old,key:undefined,hasKey:!!old.key,prompt:old.prompt||JbpAI.prompt,defaultPrompt:settings?JbpAI.prompt:undefined};
   if(m.type==='aiSave'){
     if(!settings)throw Error('Откройте настройки расширения.');
-    const c=JbpAI.config(m.config,old);
-    if(c.enabled&&!await chrome.permissions.contains({origins:[new URL(c.endpoint).origin+'/*']}))throw Error('Нет разрешения на доступ к API.');
-    await chrome.storage.local.set({jbpAI:c});return true;
+    const save=aiSettingsQueue.catch(()=>{}).then(async()=>{
+      const current=(await chrome.storage.local.get('jbpAI')).jbpAI||{};
+      const c=JbpAI.config(m.config,current);
+      if(c.enabled&&!await chrome.permissions.contains({origins:[new URL(c.endpoint).origin+'/*']}))throw Error('Нет разрешения на доступ к API.');
+      await chrome.storage.local.set({jbpAI:c});return true;
+    });
+    aiSettingsQueue=save;return save;
   }
   if(m.type==='aiBoardData'){
     if(!native||!old.enabled||!old.board)throw Error('Анализ доски выключен.');

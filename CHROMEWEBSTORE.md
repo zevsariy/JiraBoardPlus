@@ -1,6 +1,6 @@
 # Chrome Web Store — Jira Board Plus
 
-Last updated: 2026-11-27. Release documentation: 0.29.0. This file is excluded from the extension ZIP. It records listing information, not a claim that this release has been submitted to the store.
+Last updated: 2026-11-27. Release documentation: 0.29.1. This file is excluded from the extension ZIP. It records listing information, not a claim that this release has been submitted to the store.
 
 ## Store listing
 
@@ -22,7 +22,7 @@ The manifest references the existing `icons/report.png`; branding and promotiona
 
 ## Permissions justification
 
-No permissions were added in 0.29.0.
+No permissions were added in 0.29.0 or 0.29.1.
 
 | Permission | Purpose |
 | --- | --- |
@@ -62,3 +62,5 @@ Store visibility, regions, verified publisher information and public contact ema
 ## Review notes
 
 Jira Server / Data Center requires the user's installation and session. Development checks use synthetic fixtures; no corporate Jira is contacted. Server CPU/JVM/database metrics are unavailable without server monitoring. Store publishing is separate from the repository's automated GitHub release workflow.
+
+Version 0.29.1 (2026-11-27): safer partial-profile import, one local pre-import profile backup excluding AI keys and result data, and network-budget storage-failure recovery. No store submission performed.

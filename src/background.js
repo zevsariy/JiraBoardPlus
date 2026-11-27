@@ -336,7 +336,7 @@ async function syncEmbedded(){
 async function embeddedMessage(message,sender){
  const connection=JbpConnection.from(await read());if(sender.id!==chrome.runtime.id||!sender.tab?.id||sender.frameId!==0||!isJiraPage(sender.url,connection.baseUrl))throw Error('Недопустимая страница Jira.');
  if(message.type==='embeddedConnection')return connection;
- if(message.type==='embeddedTools'){const cmd=message.command;if(!['rulesGet','rulesSet','metricsProfile','export','validate','import'].includes(cmd?.op))throw Error('Недопустимая операция.');if(cmd.baseUrl&&JbpConnection.normalize(cmd.baseUrl)!==connection.baseUrl)throw Error('Другой сервер Jira.');return serial(()=>toolsCommand(cmd));}
+ if(message.type==='embeddedTools'){const cmd=message.command;if(!['rulesGet','rulesSet','metricsProfile','export','backupExport','validate','import'].includes(cmd?.op))throw Error('Недопустимая операция.');if(cmd.baseUrl&&JbpConnection.normalize(cmd.baseUrl)!==connection.baseUrl)throw Error('Другой сервер Jira.');return serial(()=>toolsCommand(cmd));}
  if(message.type==='embeddedPrefs')return serial(async()=>{if(message.patch&&Object.keys(message.prefs||{}).some(k=>!Object.hasOwn(JbpBoard.defaults,k)))throw Error('Неизвестный параметр настроек.');const prefs=JbpBoard.validate(message.patch?{...(await chrome.storage.local.get('jbpBoardPrefs')).jbpBoardPrefs,...message.prefs}:message.prefs);await chrome.storage.local.set({jbpBoardPrefs:prefs});await broadcastPrefs(prefs);return prefs;});
  if(message.type==='embeddedRoadmapStore'){
   const prefix='jbpRoadmap:'+encodeURIComponent(connection.baseUrl)+':'+connection.project;
