@@ -17,7 +17,7 @@
   function resource(entry){
     const token=entry.name+'\0'+entry.startTime+'\0'+entry.duration;
     if(seen.has(token))return;seen.add(token);if(seen.size>4000)seen.delete(seen.values().next().value);
-    push('resources',{...D.timing(entry,state.base),buffered:entry.startTime<state.startMs},2000);
+    push('resources',{...D.timing(entry,state.base),buffered:entry.startTime<state.startMs,visible:!document.hidden&&entry.startTime>=visibleSince},2000);
   }
   function observe(type,fn,buffered=false){
     if(!globalThis.PerformanceObserver?.supportedEntryTypes?.includes(type))return false;
@@ -33,12 +33,11 @@
     stop();if(!Number.isInteger(seconds)||seconds<15||seconds>300)throw Error('Запись: 15–300 секунд.');
     if(!location.href.startsWith(base+'/'))throw Error('Вкладка не относится к настроенной Jira.');
     const startMs=performance.now();state={base,running:true,startedAt:new Date().toISOString(),deadline:Date.now()+seconds*1000,startMs,visibleObservedMs:0,resources:[],longTasks:[],lagMs:[],marks:[],errors:{js:0,rejections:0,resources:0},dropped:{},capabilities:{},layoutShift:0,environment:null,navigation:null};
-    seen=new Set();
+    seen=new Set();visibleSince=document.hidden?Infinity:startMs;
     const nav=performance.getEntriesByType('navigation')[0];
     if(nav)state.navigation={...D.timing(nav,base),domInteractiveMs:D.finite(nav.domInteractive),domContentLoadedMs:nav.domContentLoadedEventEnd>0?D.round(nav.domContentLoadedEventEnd):null,loadMs:nav.loadEventEnd>0?D.round(nav.loadEventEnd):null,type:['navigate','reload','back_forward','prerender'].includes(nav.type)?nav.type:'unknown'};
     if(buffered)for(const e of performance.getEntriesByType('resource'))resource(e);
     state.capabilities.resource=observe('resource',resource,buffered);
-    visibleSince=document.hidden?Infinity:startMs;
     state.capabilities.longTask=observe('longtask',e=>push('longTasks',{startMs:D.round(e.startTime),duration:D.round(e.duration),visible:!document.hidden&&e.startTime>=visibleSince},500));
     state.capabilities.layoutShift=observe('layout-shift',e=>{if(!e.hadRecentInput)state.layoutShift+=e.value;});
     state.capabilities.lcp=observe('largest-contentful-paint',e=>{state.lcpMs=D.round(e.startTime);},true);
@@ -55,6 +54,6 @@
   }
   function stop(){clearTimeout(tickTimer);clearTimeout(stopTimer);for(const o of observers)o.disconnect();observers=[];for(const remove of listeners.splice(0))remove();if(state?.running){state.running=false;state.endedAt=new Date().toISOString();}return snapshot(false);}
   function snapshot(check=true){if(!state)return null;if(check&&state.running&&Date.now()>=state.deadline)return stop();const {base,...data}=state;return {...data,capturedAt:new Date().toISOString(),layoutShift:Math.round(state.layoutShift*1000)/1000,pageRoute:D.route(location.href,base)};}
-  function mark(){if(!isLive())throw Error('Сначала начните запись.');push('marks',{at:new Date().toISOString(),kind:'user-symptom'},100);return snapshot();}
+  function mark(){if(!isLive())throw Error('Сначала начните запись.');push('marks',{at:new Date().toISOString(),kind:'user-symptom',startMs:D.round(performance.now())},100);return snapshot();}
   globalThis.JbpDiagnosticPage={start,stop,snapshot,mark};
 })();

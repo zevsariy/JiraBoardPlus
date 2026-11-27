@@ -5,6 +5,7 @@ globalThis.JbpDiagnosticProbe=async function(base,kind,id){
   if(globalThis.jbpDiagnosticActiveProbe)throw Error('Проба уже выполняется.');
   const controller=new AbortController(),at=new Date().toISOString(),start=performance.now(),url=base+'/rest/api/2/'+path;
   const record={id,controller};globalThis.jbpDiagnosticActiveProbe=record;
+  let visible=!document.hidden;const visibility=()=>{if(document.hidden)visible=false;};document.addEventListener('visibilitychange',visibility);
   let timeout=false,timer=setTimeout(()=>{timeout=true;controller.abort();},15000),status=null,headersMs=null,bytes=0,serverTiming=[],meta={},requestId,nodeId,serverDate,retryMs=0,contentType='';
   try{
     const response=await fetch(url,{credentials:'same-origin',cache:'no-store',redirect:'error',headers:{Accept:'application/json'},signal:controller.signal});
@@ -25,7 +26,7 @@ globalThis.JbpDiagnosticProbe=async function(base,kind,id){
     await new Promise(resolve=>setTimeout(resolve,0));
     const entries=performance.getEntriesByName(url,'resource').filter(e=>e.startTime>=start&&e.startTime<=start+durationMs);
     const phases=entries.length===1?JbpDiagnostics.timing(entries[0],base):null;
-    return {at,kind,outcome:'http',status,durationMs:JbpDiagnostics.round(durationMs),headersMs:JbpDiagnostics.round(headersMs),bytes,phases,serverTiming,meta,requestId,nodeId,serverDate,retryMs,json:/application\/json/i.test(contentType),visible:!document.hidden};
-  }catch(e){return {at,kind,outcome:timeout?'timeout':controller.signal.aborted?'cancelled':e.message==='response-limit'?'response-limit':'network-error',status,durationMs:JbpDiagnostics.round(performance.now()-start),headersMs:JbpDiagnostics.round(headersMs),bytes,serverTiming,meta,requestId,nodeId,serverDate,retryMs,visible:!document.hidden};}
-  finally{clearTimeout(timer);if(globalThis.jbpDiagnosticActiveProbe===record)delete globalThis.jbpDiagnosticActiveProbe;}
+    return {at,kind,outcome:'http',status,durationMs:JbpDiagnostics.round(durationMs),headersMs:JbpDiagnostics.round(headersMs),bytes,phases,serverTiming,meta,requestId,nodeId,serverDate,retryMs,json:/application\/json/i.test(contentType),visible};
+  }catch(e){return {at,kind,outcome:timeout?'timeout':controller.signal.aborted?'cancelled':e.message==='response-limit'?'response-limit':'network-error',status,durationMs:JbpDiagnostics.round(performance.now()-start),headersMs:JbpDiagnostics.round(headersMs),bytes,serverTiming,meta,requestId,nodeId,serverDate,retryMs,visible};}
+  finally{document.removeEventListener('visibilitychange',visibility);clearTimeout(timer);if(globalThis.jbpDiagnosticActiveProbe===record)delete globalThis.jbpDiagnosticActiveProbe;}
 };

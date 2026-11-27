@@ -1,6 +1,6 @@
 # Chrome Web Store — Jira Board Plus
 
-Last updated: 2026-11-28. Release documentation: 0.30.0. This file is excluded from the extension ZIP. It records listing information, not a claim that this release has been submitted to the store.
+Last updated: 2026-11-28. Release documentation: 0.31.0. This file is excluded from the extension ZIP. It records listing information, not a claim that this release has been submitted to the store.
 
 ## Store listing
 
@@ -66,3 +66,5 @@ Jira Server / Data Center requires the user's installation and session. Developm
 Version 0.29.1 (2026-11-27): safer partial-profile import, one local pre-import profile backup excluding AI keys and result data, and network-budget storage-failure recovery. No store submission performed.
 
 Version 0.30.0 (2026-11-28): selective settings restore with before/after preview, local pre-apply backup and conflict checks. No new permissions. Preview data stays in browser session storage; backup settings exclude AI keys and result data. No store submission performed.
+
+Version 0.31.0 (2026-11-28): local browser-evidence diagnostics with confidence, supporting metrics, quality gaps and offline explanations for saved reports. No new permissions or automatic requests. No store submission performed.

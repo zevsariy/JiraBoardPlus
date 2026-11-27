@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.31.0 — 2026-11-28
+
+- Explain possible Jira slowness causes with supporting measurements, sample sizes, confidence levels, alternative explanations and next checks.
+- Separate current Jira observations from historical buffers, external resources and background latency; avoid pooling passive and active measurements or unrelated endpoint latency.
+- Show data-quality gaps and measurements near symptom marks. Recompute explanations for saved reports and include them in JSON/Markdown exports.
+- Keep browser-only limits explicit: no inferred CPU/JVM/database load, ICMP ping or packet loss. No new permissions, automatic probes or settings migrations.
+
 ## 0.30.0 — 2026-11-28
 
 - Выборочное восстановление настроек из нового архива настроек и существующего общего локального архива: выбор разделов, сравнение значений до/после, отмена и проверка формата.
