@@ -1,5 +1,6 @@
 const aiRequests=new Map();
 async function aiMessage(m,sender){
+  if(sender.url?.startsWith(chrome.runtime.getURL('')))sender={...sender,url:sender.url.split(/[?#]/)[0]};
   const settings=sender.url===chrome.runtime.getURL('settings.html');
   const metrics=sender.url?.split('?')[0]===chrome.runtime.getURL('metrics.html');
   const control=sender.url===chrome.runtime.getURL('control.html');

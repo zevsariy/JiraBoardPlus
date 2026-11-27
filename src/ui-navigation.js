@@ -1,0 +1,7 @@
+/* One navigation model for extension pages, popup and the Jira workspace. */
+globalThis.JbpNavigation={groups:[
+  {title:'Работа с командой',items:[['control','Контроль команды'],['metrics','Метрики'],['roadmap','Роадмэп'],['report','JQL-отчёты'],['tools','Подготовка к refinement']]},
+  {title:'Обслуживание',items:[['diagnostics','Диагностика Jira'],['settings','Настройки']]},
+  {title:'Помощь',items:[['help','Справка'],['onboarding','Первоначальная настройка']]}
+],paths:{control:'M4 4h16v16H4z M7 12l3 3 7-7',metrics:'M4 20V12 M12 20V4 M20 20V8',roadmap:'M3 5h10v4H3z M8 11h13v4H8z M5 17h10v4H5z',report:'M4 3h16v18H4z M8 8h8 M8 12h8 M8 16h5',tools:'M4 5h16 M4 12h16 M4 19h16 M8 3v4 M16 10v4 M10 17v4',diagnostics:'M3 12h4l3-8 4 16 3-8h4',settings:'M12 8a4 4 0 1 0 0 8 4 4 0 0 0 0-8 M12 2v3 M12 19v3 M2 12h3 M19 12h3 M5 5l2 2 M17 17l2 2 M5 19l2-2 M17 7l2-2',help:'M9 8a3 3 0 1 1 5 2c-2 1-2 2-2 4 M12 18h.01',onboarding:'M4 12l5 5L20 6'}};
+globalThis.JbpNavigation.icon=function(id,doc=document){const svg=doc.createElementNS('http://www.w3.org/2000/svg','svg');for(const [k,v]of Object.entries({viewBox:'0 0 24 24','aria-hidden':'true',fill:'none',stroke:'currentColor','stroke-width':'1.7','stroke-linecap':'round','stroke-linejoin':'round'}))svg.setAttribute(k,v);const p=doc.createElementNS(svg.namespaceURI,'path');p.setAttribute('d',this.paths[id]||this.paths.settings);svg.append(p);return svg;};

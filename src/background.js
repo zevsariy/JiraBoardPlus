@@ -194,6 +194,7 @@ async function command(message) {
   return state;
 }
 chrome.runtime.onMessage.addListener((message, sender, reply) => {
+  if(sender.url?.startsWith(chrome.runtime.getURL('')))sender={...sender,url:sender.url.split(/[?#]/)[0]};
   if(message?.type==='diagnostics'){diagnosticMessage(message,sender).then(data=>reply({ok:true,data}),error=>reply({ok:false,error:error.message}));return true;}
   if(message.type==='networkBudget'){networkMessage(message,sender).then(data=>reply({ok:true,data}),e=>reply({ok:false,error:e.message}));return true;}
   if(['controlRulesGet','controlRulesChanged'].includes(message.type)){
@@ -261,7 +262,8 @@ chrome.runtime.onMessage.addListener((message, sender, reply) => {
     const operation=async () => {
       if(!popup&&!isJiraPage(sender.url,JbpConnection.from(await read()).baseUrl))throw new Error('Недопустимая страница Jira.');
       if (message.type === 'boardPrefsGet') return { ...JbpBoard.defaults, ...(await chrome.storage.local.get('jbpBoardPrefs')).jbpBoardPrefs };
-      const prefs = JbpBoard.validate(message.prefs);
+      if(message.patch&&Object.keys(message.prefs||{}).some(k=>!Object.hasOwn(JbpBoard.defaults,k)))throw Error('Неизвестный параметр настроек.');
+      const prefs = JbpBoard.validate(message.patch?{...(await chrome.storage.local.get('jbpBoardPrefs')).jbpBoardPrefs,...message.prefs}:message.prefs);
       await chrome.storage.local.set({ jbpBoardPrefs: prefs });
       await broadcastPrefs(prefs);
       return prefs;
@@ -327,15 +329,15 @@ importScripts('ai-worker.js');
 
 async function syncEmbedded(){
  const base=JbpConnection.from(await read()).baseUrl,allowed=base&&await chrome.permissions.contains({origins:[new URL(base).origin+'/*']}),matches=allowed?[base+'/*']:[],old=await chrome.scripting.getRegisteredContentScripts({ids:['jbp-shell']});
- if(old.length&&JSON.stringify(old[0].matches)===JSON.stringify(matches)&&old[0].js?.includes('src/runtime-messages.js'))return;
+ if(old.length&&JSON.stringify(old[0].matches)===JSON.stringify(matches)&&old[0].js?.includes('src/ui-navigation.js'))return;
  if(old.length)await chrome.scripting.unregisterContentScripts({ids:['jbp-shell']});
- if(allowed)await chrome.scripting.registerContentScripts([{id:'jbp-shell',matches,js:['src/runtime-messages.js','src/jira-shell.js'],runAt:'document_idle',persistAcrossSessions:true}]);
+ if(allowed)await chrome.scripting.registerContentScripts([{id:'jbp-shell',matches,js:['src/runtime-messages.js','src/ui-navigation.js','src/jira-shell.js'],runAt:'document_idle',persistAcrossSessions:true}]);
 }
 async function embeddedMessage(message,sender){
  const connection=JbpConnection.from(await read());if(sender.id!==chrome.runtime.id||!sender.tab?.id||sender.frameId!==0||!isJiraPage(sender.url,connection.baseUrl))throw Error('Недопустимая страница Jira.');
  if(message.type==='embeddedConnection')return connection;
  if(message.type==='embeddedTools'){const cmd=message.command;if(!['rulesGet','rulesSet','metricsProfile','export','validate','import'].includes(cmd?.op))throw Error('Недопустимая операция.');if(cmd.baseUrl&&JbpConnection.normalize(cmd.baseUrl)!==connection.baseUrl)throw Error('Другой сервер Jira.');return serial(()=>toolsCommand(cmd));}
- if(message.type==='embeddedPrefs'){const prefs=JbpBoard.validate(message.prefs);await chrome.storage.local.set({jbpBoardPrefs:prefs});await broadcastPrefs(prefs);return prefs;}
+ if(message.type==='embeddedPrefs')return serial(async()=>{if(message.patch&&Object.keys(message.prefs||{}).some(k=>!Object.hasOwn(JbpBoard.defaults,k)))throw Error('Неизвестный параметр настроек.');const prefs=JbpBoard.validate(message.patch?{...(await chrome.storage.local.get('jbpBoardPrefs')).jbpBoardPrefs,...message.prefs}:message.prefs);await chrome.storage.local.set({jbpBoardPrefs:prefs});await broadcastPrefs(prefs);return prefs;});
  if(message.type==='embeddedRoadmapStore'){
   const prefix='jbpRoadmap:'+encodeURIComponent(connection.baseUrl)+':'+connection.project;
   const allowed=k=>typeof k==='string'&&(k===prefix||k.startsWith(prefix+':'))&&k.length<1000;
@@ -345,7 +347,7 @@ async function embeddedMessage(message,sender){
  }
 
  if(message.type==='embeddedReport'){const cmd=message.command;if(!['get','save','delete','run','fields','dismissNotice','testNotice'].includes(cmd?.type))throw Error('Недопустимая операция отчёта.');return cmd.type==='get'?command(cmd):serial(()=>command(cmd));}
- if(message.type==='embeddedPage'){if(!['metrics.html','report.html','roadmap.html','tools.html','settings.html','help.html','onboarding.html','control.html','diagnostics.html'].includes(message.page))throw Error('Недопустимая страница.');await chrome.tabs.create({url:chrome.runtime.getURL(message.page)});return true;}
+ if(message.type==='embeddedPage'){const [file,anchor,...extra]=String(message.page||'').split('#');if(extra.length||anchor&&!/^[a-zA-Z0-9_-]{1,80}$/.test(anchor)||!['metrics.html','report.html','roadmap.html','tools.html','settings.html','help.html','onboarding.html','control.html','diagnostics.html'].includes(file))throw Error('Недопустимая страница.');await chrome.tabs.create({url:chrome.runtime.getURL(message.page)});return true;}
  if(message.type==='embeddedStore'){
   if(message.op==='get'&&message.key==='jbpBoardPrefs')return {jbpBoardPrefs:{...JbpBoard.defaults,...(await chrome.storage.local.get('jbpBoardPrefs')).jbpBoardPrefs}};
   const prefix='jbpDashboard:'+encodeURIComponent(connection.baseUrl)+':';if(typeof message.key!=='string'||!message.key.startsWith(prefix)||message.key.length>500)throw Error('Недопустимый раздел настроек.');
@@ -357,8 +359,8 @@ async function embeddedMessage(message,sender){
  const common=[['JbpNetwork','src/network-client.js'],['JbpUI','src/ui-theme.js'],['JbpBoard','src/board-core.js'],['JbpSprint','src/sprint-core.js'],['JbpSprint.Client','src/sprint-client.js'],['JbpSearchPicker','src/search-picker.js']];
  if(section==='roadmap')modules=[...common,['JbpRoadmap','src/roadmap-core.js'],['JbpRoadmap.Client','src/roadmap-client.js'],['JbpRoadmap.draw','src/roadmap-view.js'],['marked','src/vendor/marked.umd.js'],['JbpMarkdown','src/ai-markdown.js'],['JbpAIUI','src/ai-ui.js'],['cytoscape','src/vendor/cytoscape.min.js'],['JbpRoadmap.createGraph','src/roadmap-graph.js'],['JbpRoadmapMount','src/roadmap.js']];
  if(section==='tools')modules=[...common,['JbpReports','src/reports-core.js'],['JbpTools','src/tools-core.js'],['JbpTools.Client','src/tools-client.js'],['JbpToolsSelection','src/tools-selection.js'],['JbpToolsMount','src/tools.js']];
- if(section==='settings')modules=[...common,['JbpConnection','src/connection.js'],['JbpSettingsMount','src/settings.js']];
+ if(section==='settings')modules=[...common,['JbpConnection','src/connection.js'],['JbpSettingsCenter','src/settings-center.js'],['JbpFormsMount','src/ui-forms.js'],['JbpSettingsMount','src/settings.js']];
  modules.unshift(['JbpNetwork','src/network-client.js']);
  for(const [name,file] of modules){const [r]=await chrome.scripting.executeScript({target:{tabId:sender.tab.id},func:path=>{let v=globalThis;for(const part of path.split('.'))v=v?.[part];return !!v;},args:[name]});if(!r?.result)await chrome.scripting.executeScript({target:{tabId:sender.tab.id},files:[file]});}
- const html=await (await (globalThis.JbpNetwork?.fetch || fetch)(chrome.runtime.getURL(section+'.html'))).text();const css=await Promise.all(['report','brand',...({help:['guide'],roadmap:['roadmap'],tools:['tools'],settings:['settings']}[section]||['dashboard']),'ui-tokens','ui-pages','ui-jira'].map(async n=>(await (globalThis.JbpNetwork?.fetch || fetch)(chrome.runtime.getURL('src/'+n+'.css'))).text()));return {html,css:css.join('\n')};
+ const html=await (await (globalThis.JbpNetwork?.fetch || fetch)(chrome.runtime.getURL(section+'.html'))).text();const css=await Promise.all(['report','brand',...({help:['guide'],roadmap:['roadmap'],tools:['tools'],settings:['settings']}[section]||['dashboard']),'ui-tokens','ui-pages',...(section==='settings'?['settings-center']:[]),'ui-jira'].map(async n=>(await (globalThis.JbpNetwork?.fetch || fetch)(chrome.runtime.getURL('src/'+n+'.css'))).text()));return {html,css:css.join('\n')};
 }
