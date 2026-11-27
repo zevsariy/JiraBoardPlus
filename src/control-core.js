@@ -28,29 +28,33 @@ globalThis.JbpControl = (() => {
   function fieldIs(e,id,label){return e.fieldId===id||e.field===id||e.field===label;}
   function sprintIds(value){if(Array.isArray(value))return [...new Set(value.flatMap(sprintIds))];if(value&&typeof value==='object')return value.id==null?[]:[String(value.id)];const text=String(value??'');const embedded=[...text.matchAll(/(?:^|[,\[])id=(\d+)/g)].map(m=>m[1]);return embedded.length?embedded:text.split(',').map(s=>s.trim()).filter(s=>/^\d+$/.test(s));}
   function sprintAt(issue,h,field,at){if(!h.complete)return null;if(time(issue.fields?.created)>at)return [];const changes=h.events.filter(e=>fieldIs(e,field,'Sprint'));const next=changes.find(e=>time(e.at)>at);if(next)return sprintIds(next.from);if(changes.length)return sprintIds(changes.at(-1).to);return Object.hasOwn(issue.fields||{},field)?sprintIds(issue.fields[field]):null;}
-  function sprintSummary(snapshot,c){
+  function sprintSummary(snapshot,c,getHistory=history){
     const start=time(c.sprintStart),end=Math.min(time(c.sprintEnd)??time(snapshot.at),time(snapshot.at));
     if(!c.sprintId||!c.sprintField||start===null||end<start)return null;
     const out={planned:0,completed:0,remaining:0,unknown:0,plannedEstimate:0,completedEstimate:0,unknownEstimates:0,unit:c.estimateName||c.estimateField||'Оценки не выбраны',start:c.sprintStart,end:new Date(end).toISOString()};
     const estimate=(i,h,at)=>{if(!c.estimateField)return null;const next=h.events.find(e=>fieldIs(e,c.estimateField,c.estimateName)&&time(e.at)>at),v=next?(next.fromString??next.from):i.fields[c.estimateField];return v!==null&&v!==undefined&&v!==''&&Number.isFinite(Number(v))?Number(v):null;};
-    for(const i of snapshot.issues){const h=history(i),a=sprintAt(i,h,c.sprintField,start),b=sprintAt(i,h,c.sprintField,end);if(a===null||b===null){out.unknown++;continue;}
+    for(const i of snapshot.issues){const h=getHistory(i),a=sprintAt(i,h,c.sprintField,start),b=sprintAt(i,h,c.sprintField,end);if(a===null||b===null){out.unknown++;continue;}
       if(a.includes(String(c.sprintId))){out.planned++;const v=estimate(i,h,start);if(v===null)out.unknownEstimates++;else out.plannedEstimate+=v;}
       if(b.includes(String(c.sprintId))){const next=h.events.find(e=>e.field==='status'&&time(e.at)>end),status=next?next.fromString:i.fields.status?.name;if(!c.doneNames?.length){out.unknown++;continue;}if(c.doneNames.includes(status)){out.completed++;const v=estimate(i,h,end);if(v===null)out.unknownEstimates++;else out.completedEstimate+=v;}else out.remaining++;}
     }
     return out;
   }
   function analyze(snapshot,config={}){
+    // Reuse parsed histories only within this analysis; later snapshots may mutate.
+    const histories=new Map();
+    const getHistory=issue=>{if(!histories.has(issue))histories.set(issue,history(issue));return histories.get(issue);};
     const now=time(snapshot.at);if(now===null||!Array.isArray(snapshot.issues))throw Error('Снимок без даты или списка задач.');
     const selectedRules=rules(config.rules),issues=snapshot.issues,byKey=new Map(issues.map(i=>[i.key,i])),events=[],edges=[],consistency=[],warnings=[];
     const rows=issues.map(issue=>{
-      const f=issue.fields||{},h=history(issue),statusEvents=h.events.filter(e=>e.field==='status'),last=statusEvents.at(-1),created=time(f.created);
+      const f=issue.fields||{},h=getHistory(issue),statusEvents=h.events.filter(e=>e.field==='status'),last=statusEvents.at(-1),created=time(f.created);
       const ageStart=h.complete?(last?time(last.at):created):null;
       const ageDays=ageStart===null?null:Math.max(0,(now-ageStart)/DAY);
       const reopens=h.complete&&config.doneNames?.length?statusEvents.filter(e=>isDoneName(e.fromString,config)&&!isDoneName(e.toString,config)).length:null;
       let reopenedAt=null,reworkDays=reopens===null?null:0;
       if(reopens!==null)for(const e of statusEvents){if(isDoneName(e.fromString,config)&&!isDoneName(e.toString,config))reopenedAt=time(e.at);if(isDoneName(e.toString,config)&&reopenedAt!==null){reworkDays+=(time(e.at)-reopenedAt)/DAY;reopenedAt=null;}}
       if(reopenedAt!==null)reworkDays+=Math.max(0,now-reopenedAt)/DAY;
-      const returns=h.complete?statusEvents.filter((e,i)=>statusEvents.slice(0,i).some(p=>p.fromString===e.toString)).length:null;
+      let returns=h.complete?0:null;
+      if(h.complete){const previous=new Set();for(const e of statusEvents){if(previous.has(e.toString))returns++;previous.add(e.fromString);}}
       const blockers=[];
       for(const link of f.issuelinks||[]){
         const inward=link.inwardIssue,outward=link.outwardIssue;
@@ -92,8 +96,10 @@ globalThis.JbpControl = (() => {
     });
     // Completed status visits, not the ages of still-open tasks, form the comparison cohort.
     const cohorts=new Map();
-    for(const issue of issues){const h=history(issue);if(!h.complete)continue;let at=time(issue.fields?.created);for(const e of h.events.filter(e=>e.field==='status')){const k=`${issue.fields?.issuetype?.name||'Неизвестно'}\0${e.fromString}`;if(at!==null&&time(e.at)>=at){const a=cohorts.get(k)||[];a.push((time(e.at)-at)/DAY);cohorts.set(k,a);}at=time(e.at);}}
-    for(const r of rows){const cohort=cohorts.get(`${r.type}\0${r.status}`)||[];r.cohortSize=cohort.length;if(r.ageDays!==null&&cohort.length>=5)r.percentile=100*cohort.filter(d=>d<=r.ageDays).length/cohort.length;
+    for(const issue of issues){const h=getHistory(issue);if(!h.complete)continue;let at=time(issue.fields?.created);for(const e of h.events.filter(e=>e.field==='status')){const k=`${issue.fields?.issuetype?.name||'Неизвестно'}\0${e.fromString}`;if(at!==null&&time(e.at)>=at){const a=cohorts.get(k)||[];a.push((time(e.at)-at)/DAY);cohorts.set(k,a);}at=time(e.at);}}
+    for(const cohort of cohorts.values())cohort.sort((a,b)=>a-b);
+    const countAtMost=(values,limit)=>{let lo=0,hi=values.length;while(lo<hi){const mid=lo+Math.floor((hi-lo)/2);if(values[mid]<=limit)lo=mid+1;else hi=mid;}return lo;};
+    for(const r of rows){const cohort=cohorts.get(`${r.type}\0${r.status}`)||[];r.cohortSize=cohort.length;if(r.ageDays!==null&&cohort.length>=5)r.percentile=100*countAtMost(cohort,r.ageDays)/cohort.length;
       if(!r.done)for(const rule of selectedRules){const v=rule.metric==='blockers'?r.blockers.length:r[rule.metric];if(v!==null&&v!==undefined&&(rule.op==='gte'?v>=rule.value:v<rule.value))r.signals.push({...rule,actual:v,reason:`${rule.name}: ${metrics[rule.metric]} = ${Math.round(v*10)/10}; порог ${rule.op==='gte'?'≥':'<'} ${rule.value}`});}
     }
     const uniqueEdges=[...new Map(edges.map(e=>[`${e.from}>${e.to}`,e])).values()],dependencyProblems=[];
@@ -109,7 +115,7 @@ globalThis.JbpControl = (() => {
     if(snapshot.partial)warnings.push('Выборка частичная: итоги относятся только к загруженным задачам.');
     const missing=rows.filter(r=>!r.historyComplete).length;if(missing)warnings.push(`Без полной истории: ${missing}. Возраст и возвраты для них неизвестны.`);
     if(!config.doneNames?.length)warnings.push('Для анализа возвратов укажите названия завершённых статусов.');
-    return {at:snapshot.at,rows,events:events.sort((a,b)=>time(a.at)-time(b.at)),queues,dependencyProblems,consistency,warnings,edges:uniqueEdges,sprint:sprintSummary(snapshot,config),counts:{total:rows.length,done:rows.filter(r=>r.done).length,risk:rows.filter(r=>r.signals.length).length,history:rows.length-missing}};
+    return {at:snapshot.at,rows,events:events.sort((a,b)=>time(a.at)-time(b.at)),queues,dependencyProblems,consistency,warnings,edges:uniqueEdges,sprint:sprintSummary(snapshot,config,getHistory),counts:{total:rows.length,done:rows.filter(r=>r.done).length,risk:rows.filter(r=>r.signals.length).length,history:rows.length-missing}};
   }
   function diff(previous,current){
     if(!previous)return {available:false,added:[],removed:[],changed:[]};

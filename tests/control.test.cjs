@@ -18,3 +18,24 @@ test('rule validation rejects unbounded and unsafe values',()=>{assert.throws(()
 test('sprint baseline and end fact reconstruct historical membership and zero estimates',()=>{const i=issue(1,{customfield_2:[{id:7}],customfield_3:5,status:{name:'Done'}},[event('2026-11-03T00:00:00Z','SP','0','5',{fieldId:'customfield_3'}),event('2026-11-04T00:00:00Z','status','Doing','Done')]);const r=C.analyze(snapshot([i]),config).sprint;assert.equal(r.planned,1);assert.equal(r.completed,1);assert.equal(r.plannedEstimate,0);assert.equal(r.completedEstimate,5);assert.equal(r.unknownEstimates,0);});
 test('estimate journal excludes changes after removal from chosen sprint',()=>{const i=issue(1,{customfield_2:[{id:8}]},[event('2026-11-02T00:00:00Z','Sprint','Seven','Eight',{fieldId:'customfield_2',from:'7',to:'8'}),event('2026-11-03T00:00:00Z','SP','1','5',{fieldId:'customfield_3'})]);const a=C.analyze(snapshot([i]),config);assert.equal(a.events.length,1);assert.equal(a.events[0].kind,'Удалена из спринта');});
 test('today due date is not overdue before end of calendar day',()=>{const r=C.analyze(snapshot([issue(1,{duedate:'2026-11-27'})]),config).rows[0];assert.equal(r.dueDays,0);assert.ok(!r.signals.some(s=>s.metric==='dueDays'));});
+
+test('percentiles include ties and keep small cohorts unknown',()=>{
+ const fixtures=[1,2,2,4,8].map((days,n)=>issue(n+1,{status:{name:'Done'}},[event(`2026-11-${String(days+1).padStart(2,'0')}T00:00:00Z`,'status','Doing','Done')]));
+ fixtures.push(issue(10,{created:'2026-11-25T12:00:00Z'}));
+ const result=C.analyze(snapshot(fixtures),config).rows.at(-1);
+ assert.equal(result.percentile,60);
+ assert.equal(C.analyze(snapshot(fixtures.slice(1)),config).rows.at(-1).percentile,null);
+});
+test('analysis history cache does not survive edits to the same issue object',()=>{
+ const value=issue(1),s=snapshot([value]);
+ assert.equal(C.analyze(s,config).rows[0].returns,0);
+ value.changelog.histories.push(event('2026-11-02','status','Doing','Test'),event('2026-11-03','status','Test','Doing'));
+ value.changelog.total=2;
+ assert.equal(C.analyze(s,config).rows[0].returns,1);
+ value.changelog.total=3;
+ assert.equal(C.analyze(s,config).rows[0].returns,null);
+});
+test('self transitions count only statuses from earlier events',()=>{
+ const value=issue(1,{},[event('2026-11-02','status','Doing','Doing'),event('2026-11-03','status','Doing','Doing')]);
+ assert.equal(C.analyze(snapshot([value]),config).rows[0].returns,1);
+});

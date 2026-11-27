@@ -113,3 +113,16 @@ test('loading limit defaults to 2000 and explicitly permits 5000 while rejecting
  });
 
 test('Team defaults use the field name rather than an unrelated installation ID',()=>{assert.equal(R.defaults([{id:'customfield_10200',name:'Fixed In'},{id:'customfield_10107',name:'Team'}],[]).teamField,'customfield_10107');assert.equal(R.defaults([{id:'customfield_10200',name:'Fixed In'}],[]).teamField,'');});
+
+test('compact AI preserves exact JSON budget with escaped text and dependency overflow',()=>{
+ const m=R.build([{issue:issue('D-1'),level:0}],c,prefs);m.config=R.config(c);m.roots=[];
+ m.nodes=Array.from({length:2500},(_,i)=>({...m.nodes[0],key:'D-'+i,team:'"\\\n😀'.repeat(i%9+1)}));
+ m.edges=Array.from({length:3000},(_,i)=>({from:'D-'+i,to:'D-'+(i+1),clear:false,conflict:true,unknown:false}));
+ const actual=R.compactAI(m),expected={...actual,issues:[],dependencies:[],omittedIssues:0,omittedDependencies:0};delete expected.coverage;
+ const exported=R.exportModel(m);
+ for(const n of exported.nodes){expected.issues.push([n.key,n.parent,n.type,n.status,n.team,n.start,n.end,n.due,n.cutoffRisk,!!n.noSprint,!!n.external,n.done,n.unknown,n.source]);if(JSON.stringify(expected).length>145000){expected.issues.pop();break;}}
+ expected.omittedIssues=m.nodes.length-expected.issues.length;
+ for(const e of exported.edges){expected.dependencies.push([e.from,e.to,!!e.clear,!!e.conflict,!!e.unknown]);if(JSON.stringify(expected).length>185000){expected.dependencies.pop();break;}}
+ expected.omittedDependencies=m.edges.length-expected.dependencies.length;expected.coverage=actual.coverage;
+ assert.deepEqual(actual,expected);assert.ok(actual.omittedIssues>0);assert.ok(actual.omittedDependencies>0);
+});
