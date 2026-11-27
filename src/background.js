@@ -1,6 +1,8 @@
+importScripts('runtime-messages.js');
 importScripts('network-core.js', 'connection.js', 'reports-core.js', 'board-core.js', 'sprint-core.js', 'tools-core.js', 'tools-store.js', 'notes-core.js', 'ai-core.js');
 importScripts('network-worker.js', 'network-client.js');
 importScripts('diagnostics-core.js', 'diagnostics-probe.js', 'diagnostics-worker.js');
+importScripts('control-core.js', 'roadmap-core.js', 'restore-core.js', 'restore-worker.js');
 const R = globalThis.JbpReports;
 const STORE = 'jbpReportsV1';
 const ALARM = 'jbp-scheduler';
@@ -195,6 +197,7 @@ async function command(message) {
 }
 chrome.runtime.onMessage.addListener((message, sender, reply) => {
   if(sender.url?.startsWith(chrome.runtime.getURL('')))sender={...sender,url:sender.url.split(/[?#]/)[0]};
+  if(message?.type==='settingsRestore'){restoreMessage(message,sender).then(data=>reply({ok:true,data}),error=>reply({ok:false,error:error.message}));return true;}
   if(message?.type==='diagnostics'){diagnosticMessage(message,sender).then(data=>reply({ok:true,data}),error=>reply({ok:false,error:error.message}));return true;}
   if(message.type==='networkBudget'){networkMessage(message,sender).then(data=>reply({ok:true,data}),e=>reply({ok:false,error:e.message}));return true;}
   if(['controlRulesGet','controlRulesChanged'].includes(message.type)){

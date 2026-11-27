@@ -13,9 +13,10 @@ const {chromium}=require('playwright'),path=require('node:path'),fs=require('nod
  await page.locator('#next').click();assert.match(await page.locator('#error').textContent(),/базовый URL/);
  await page.locator('#baseUrl').fill('https://jira.example.com');await page.locator('#project').fill('demo');await page.locator('#next').click();await page.getByText('Шаг 2 из 4',{exact:true}).waitFor();
  await page.reload();await page.evaluate(()=>{chrome.permissions.request=async()=>true;});await page.getByText('Шаг 2 из 4',{exact:true}).waitFor();assert.equal(await page.locator('#project').inputValue(),'DEMO');
+ await page.evaluate(()=>{globalThis.originalDraftSet=chrome.storage.local.set;chrome.storage.local.set=async v=>{if(v.jbpOnboardingDraft)throw Error('Test draft write failure');return originalDraftSet(v);};});await page.locator('#next').click();await page.locator('#error').filter({hasText:'Test draft write failure'}).waitFor();assert.equal(await page.locator('#progress').textContent(),'Шаг 2 из 4');await page.evaluate(()=>{chrome.storage.local.set=originalDraftSet;});
  await page.locator('#workStatusNames').fill('Done');await page.locator('#next').click();assert.match(await page.locator('#error').textContent(),/одновременно/);
  await page.locator('#workStatusNames').fill('Doing');await page.locator('#next').click();await page.locator('#daily').check();await page.locator('#next').click();
- assert.match(await page.locator('#review').textContent(),/DEMO/);assert.equal((await worker.evaluate(()=>chrome.storage.local.get('jbpOnboarding'))).jbpOnboarding,undefined);
+ await page.getByText('Шаг 4 из 4',{exact:true}).waitFor();assert.match(await page.locator('#review').textContent(),/DEMO/);assert.equal((await worker.evaluate(()=>chrome.storage.local.get('jbpOnboarding'))).jbpOnboarding,undefined);
  // An unrelated setting changed while wizard is open must survive.
  await worker.evaluate(()=>chrome.storage.local.set({jbpBoardPrefs:{borderWidth:7,blockedStatusNames:'Waiting'}}));
  await page.screenshot({path:path.join(__dirname,'../test-output/onboarding-review.png'),fullPage:true});

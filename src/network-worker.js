@@ -8,7 +8,7 @@ const initializeBudget=()=>Promise.all([chrome.storage.local.get(['jbpNetworkCon
   return true;
 }).catch(()=>false);
 let jbpBudgetReady=initializeBudget(),configureQueue=Promise.resolve();
-chrome.storage.onChanged.addListener((changes,area)=>{if(area==='local'&&changes.jbpReportsV1){try{jbpNetworkBase=JbpConnection.from(changes.jbpReportsV1.newValue).baseUrl;}catch{jbpNetworkBase='';}}});
+chrome.storage.onChanged.addListener((changes,area)=>{if(area==='local'&&changes.jbpNetworkConfig){try{jbpBudget.configure(changes.jbpNetworkConfig.newValue);}catch{}}if(area==='local'&&changes.jbpReportsV1){try{jbpNetworkBase=JbpConnection.from(changes.jbpReportsV1.newValue).baseUrl;}catch{jbpNetworkBase='';}}});
 let budgetSave=Promise.resolve();
 function persistBudget(){const value={active:[...jbpBudget.active],next:jbpBudget.next,cooldown:jbpBudget.cooldown,stats:{...jbpBudget.stats},started:jbpBudget.started};budgetSave=budgetSave.catch(()=>{}).then(()=>chrome.storage.session?.set({jbpBudgetSession:value}));return budgetSave;}
 async function networkMessage(m,sender){

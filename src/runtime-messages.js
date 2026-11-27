@@ -1,3 +1,12 @@
+/* Share the commit lock between extension pages and the worker. */
+(() => {
+ if(globalThis.JbpStorage||!globalThis.chrome?.storage?.local||!globalThis.navigator?.locks)return;
+ const local=chrome.storage.local,raw={};
+ for(const name of ['set','remove','clear'])if(local[name])raw[name]=local[name].bind(local);
+ const transaction=fn=>navigator.locks.request('jbp-storage-commit',()=>fn(raw));
+ for(const name of Object.keys(raw))local[name]=(...args)=>transaction(()=>raw[name](...args));
+ globalThis.JbpStorage={transaction};
+})();
 /* Promise transport for extension UI. Retry only idempotent reads, never writes. */
 (() => {
  if(globalThis.JbpMessaging)return;

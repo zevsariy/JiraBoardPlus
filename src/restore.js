@@ -1,0 +1,32 @@
+(()=>{
+ const $=id=>document.getElementById(id),node=(tag,text)=>{const n=document.createElement(tag);if(text!==undefined)n.textContent=text;return n;};
+ let plan=null,revision=0,busy=false;
+ const status=text=>{$('restore-status').textContent=text;};
+ const send=async(op,extra={})=>{const r=await chrome.runtime.sendMessage({type:'settingsRestore',op,...extra});if(!r?.ok)throw Error(r?.error||'Связь прервалась. Проверьте настройки перед повторным применением.');return r.data;};
+ const safe=fn=>async()=>{try{await fn();}catch(e){status(e.message);}};
+ function reset(){revision++;plan=null;$('restore-preview-panel').hidden=true;$('restore-apply-settings').disabled=true;$('restore-sections').replaceChildren();}
+ function selection(){return [...document.querySelectorAll('[data-restore-id]:checked')].map(n=>n.dataset.restoreId);}
+ function update(){const n=selection().length;$('restore-selection').textContent='Выбрано разделов: '+n+'.';$('restore-apply-settings').disabled=busy||!plan||!n;$('restore-permission').hidden=!plan?.needsPermission||!selection().includes('connection');}
+ function download(value,name){const url=URL.createObjectURL(new Blob([JSON.stringify(value,null,2)],{type:'application/json'})),a=node('a');a.href=url;a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);}
+ const names={daily:'Сводка перед daily',staleDays:'Дней без обновления',visuals:'Дополнения на досках',team:'Поле Team',teamField:'ID поля Team',baseUrl:'Адрес Jira',context:'Путь Jira',project:'Проект',enabled:'Включено',model:'Модель',endpoint:'Адрес API',prompt:'Системный промпт',board:'Анализ доски',sprint:'Анализ спринта',roadmap:'Анализ роадмэпа',concurrency:'Запросов одновременно',intervalMs:'Интервал запросов, мс',mode:'Режим оценки',spField:'Поле Story Points',includeSubtasks:'Учитывать подзадачи',workStatuses:'Рабочие статусы',doneStatuses:'Завершённые статусы',privateNotes:'Личные заметки',nativeRefreshMode:'Режим обновления',nativeRefreshSeconds:'Период обновления, с',nativeRefreshPauseHidden:'Пауза неактивной вкладки',levels:'Уровни иерархии',types:'Правила по типам',rules:'Правила сигналов',percentile:'Перцентиль',charts:'Графики'};
+ const text=value=>value===undefined?'Не задано':typeof value==='boolean'?(value?'Да':'Нет'):JSON.stringify(value,null,2);
+ function render(){
+  $('restore-context').textContent='Jira архива: '+(plan.base||'не задана');$('restore-sections').replaceChildren();
+  for(const row of plan.rows){const card=node('article'),label=node('label'),check=node('input');check.type='checkbox';check.dataset.restoreId=row.id;check.disabled=!row.changed||!!row.blocked;check.onchange=update;label.append(check,node('span',row.label));card.append(label);if(row.blocked||!row.changed)card.append(node('p',row.blocked||'Изменений нет.'));const detail=node('details');detail.append(node('summary','Текущие и итоговые значения'));const table=node('table'),head=node('thead'),hr=node('tr');for(const h of ['Параметр','Сейчас','После восстановления'])hr.append(node('th',h));head.append(hr);table.append(head);const body=node('tbody');
+   const isObject=v=>v&&typeof v==='object'&&!Array.isArray(v),before=isObject(row.before)?row.before:{value:row.before},after=isObject(row.after)?row.after:{value:row.after};
+   for(const key of new Set([...Object.keys(before),...Object.keys(after)])){if(text(before[key])===text(after[key]))continue;const tr=node('tr');for(const [i,value]of [key==='value'?'Значение':names[key]||key,text(before[key]),text(after[key])].entries()){const td=node('td');td.dataset.label=['Параметр','Сейчас','После восстановления'][i];td.append(node(i?'pre':'span',value));tr.append(td);}body.append(tr);}table.append(body);detail.append(table);card.append(detail);$('restore-sections').append(card);
+  }
+  $('restore-ignored-list').textContent=plan.ignored.join('\n')||'Нет дополнительных разделов.';$('restore-preview-panel').hidden=false;update();status('Просмотр готов. Выберите разделы; настройки ещё не изменены.');
+ }
+ async function inspect(archive,seq){const next=await send('inspect',{archive});if(seq!==revision)return;plan=next;render();}
+ $('restore-source').onchange=safe(async()=>{if(busy)return;reset();const seq=revision,file=$('restore-source').files[0];if(!file)return;if(file.size>25000000)throw Error('Файл больше 25 МБ.');status('Проверка файла…');const archive=JSON.parse(await file.text());if(seq!==revision)return;await inspect(archive,seq);});
+ $('restore-export').onclick=safe(async()=>{download(await send('export'),'board-plus-settings.json');status('Текущие настройки переданы в загрузки браузера. Ключи ИИ исключены.');});
+ $('restore-backup-download').onclick=safe(async()=>{download(await send('backup'),'board-plus-before-restore.json');status('Копия до последнего восстановления передана в загрузки браузера.');});
+ $('restore-backup-preview').onclick=safe(async()=>{if(busy)return;reset();const seq=revision;await inspect(await send('backup'),seq);});
+ $('restore-select-all').onclick=()=>{for(const n of document.querySelectorAll('[data-restore-id]:not(:disabled)'))n.checked=true;update();};
+ $('restore-select-none').onclick=()=>{for(const n of document.querySelectorAll('[data-restore-id]'))n.checked=false;update();};
+ $('restore-cancel').onclick=()=>{if(!busy){reset();$('restore-source').value='';status('Просмотр отменён. Настройки не изменены.');}};
+ $('restore-permission').onclick=safe(async()=>{if(!plan?.base)return;const granted=await chrome.permissions.request({origins:[new URL(plan.base).origin+'/*']});if(granted){plan.needsPermission=false;update();}status(granted?'Доступ разрешён. Выберите подключение для восстановления.':'Доступ не предоставлен. Подключение не изменено.');});
+ $('restore-apply-settings').onclick=safe(async()=>{if(busy||!plan||!selection().length)return;busy=true;const token=plan.token,selected=selection();for(const n of document.querySelectorAll('button,input'))n.disabled=true;status('Сохранение копии и восстановление…');try{const result=await send('apply',{token,selected});reset();status(`Настройки сохранены. Восстановлено разделов: ${result.count}. Копия: ${new Date(result.backupAt).toLocaleString()}. ${result.warning||'Обновите открытые страницы расширения и Jira, чтобы перечитать настройки.'}`);}catch(e){reset();throw e;}finally{busy=false;for(const n of document.querySelectorAll('button,input'))n.disabled=false;update();}});
+ addEventListener('beforeunload',e=>{if(busy){e.preventDefault();e.returnValue='';}});
+})();
