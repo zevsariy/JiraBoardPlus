@@ -13,7 +13,7 @@ async function scheduleNext(state) {
 }
 let chain = Promise.resolve();
 const serial = fn => { const next = chain.then(fn); chain = next.catch(() => {}); return next; };
-const CONTENT_FILES = ["src/ui-theme.js", "src/jira-theme.js", "src/api.js", "src/team-panel.js", "src/content.js", "src/board-core.js", "src/active-board.js", "src/native-refresh.js", "src/sprint-core.js", "src/sprint-client.js", "src/vendor/marked.umd.js", "src/ai-markdown.js", "src/ai-ui.js", "src/ai-board.js", "src/sprint-ui.js", "src/sprint-report.js", "src/private-notes.js"];
+const CONTENT_FILES = ["src/runtime-messages.js", "src/ui-theme.js", "src/jira-theme.js", "src/api.js", "src/team-panel.js", "src/content.js", "src/board-core.js", "src/active-board.js", "src/native-refresh.js", "src/sprint-core.js", "src/sprint-client.js", "src/sprint-capacity.js", "src/vendor/marked.umd.js", "src/ai-markdown.js", "src/ai-ui.js", "src/ai-board.js", "src/sprint-ui.js", "src/sprint-report.js", "src/private-notes.js"];
 function isJiraPage(url,base){return !!base && typeof url==='string' && url.startsWith(base+'/');}
 async function broadcastPrefs(prefs,base){if(base===undefined)base=(await read()).baseUrl;if(!base)return;const tabs=await chrome.tabs.query({url:new URL(base).origin+'/*'});await Promise.allSettled(tabs.filter(t=>isJiraPage(t.url,base)).map(t=>chrome.tabs.sendMessage(t.id,{type:'boardPrefsChanged',prefs})));}
 async function syncContent(){
@@ -217,7 +217,7 @@ chrome.runtime.onMessage.addListener((message, sender, reply) => {
   }
   if (sender.id === chrome.runtime.id && message.type === 'sprintStore') {
     const trusted = sender.url?.split(/[?#]/)[0]===chrome.runtime.getURL('metrics.html');
-    serial(async()=>{
+    const operation=async()=>{
       const configured=JbpConnection.from(await read()).baseUrl;
       if(!trusted&&!isJiraPage(sender.url,configured))throw new Error('Недопустимая страница Jira.');
       const id=String(message.boardId);if(!/^\d+$/.test(id))throw new Error('Некорректный ID доски.');
@@ -235,27 +235,29 @@ chrome.runtime.onMessage.addListener((message, sender, reply) => {
       }else if(message.op==='snapshotDelete')state.snapshots=state.snapshots.filter(s=>s.id!==message.id);
       else throw new Error('Неизвестная операция.');
       await chrome.storage.local.set({[key]:state});return state;
-    }).then(data=>reply({ok:true,data}),error=>reply({ok:false,error:error.message}));return true;
+    };
+    (['profileGet','snapshotList'].includes(message.op)?operation():serial(operation)).then(data=>reply({ok:true,data}),error=>reply({ok:false,error:error.message}));return true;
   }
   if (sender.id === chrome.runtime.id && ['boardPrefsGet', 'boardPrefsSet'].includes(message.type)) {
     const popup = ['settings.html','onboarding.html'].some(name=>sender.url?.split(/[?#]/)[0] === chrome.runtime.getURL(name));
     const jira = message.type==='boardPrefsGet';
     if (!popup && !(jira && message.type === 'boardPrefsGet')) return;
-    serial(async () => {
+    const operation=async () => {
       if(!popup&&!isJiraPage(sender.url,JbpConnection.from(await read()).baseUrl))throw new Error('Недопустимая страница Jira.');
       if (message.type === 'boardPrefsGet') return { ...JbpBoard.defaults, ...(await chrome.storage.local.get('jbpBoardPrefs')).jbpBoardPrefs };
       const prefs = JbpBoard.validate(message.prefs);
       await chrome.storage.local.set({ jbpBoardPrefs: prefs });
       await broadcastPrefs(prefs);
       return prefs;
-    }).then(data => reply({ ok: true, data }), error => reply({ ok: false, error: error.message }));
+    };
+    (message.type==='boardPrefsGet'?operation():serial(operation)).then(data => reply({ ok: true, data }), error => reply({ ok: false, error: error.message }));
     return true;
   }
   if(sender.id===chrome.runtime.id && ['connectionGet','connectionSet'].includes(message.type)) {
     const page=sender.url?.split(/[?#]/)[0];
     if(!['settings.html','onboarding.html','metrics.html','report.html','tools.html','roadmap.html'].some(name=>page===chrome.runtime.getURL(name)))return;
     if(message.type==='connectionSet'&&page!==chrome.runtime.getURL('settings.html'))return;
-    serial(async()=>{
+    const operation=async()=>{
       const state=await read();
       if(message.type==='connectionGet')return JbpConnection.from(state);
       const baseUrl=JbpConnection.normalize(message.baseUrl), project=String(message.project||'').trim().toUpperCase();
@@ -269,7 +271,8 @@ chrome.runtime.onMessage.addListener((message, sender, reply) => {
       state.baseUrl=baseUrl;state.context=new URL(baseUrl).pathname.replace(/\/$/,'');state.project=project;
       await broadcastPrefs({visuals:false},JbpConnection.from(await read()).baseUrl);
       await write(state);await syncContent();await broadcastPrefs({...JbpBoard.defaults,...(await chrome.storage.local.get('jbpBoardPrefs')).jbpBoardPrefs});return JbpConnection.from(state);
-    }).then(data=>reply({ok:true,data}),error=>reply({ok:false,error:error.message}));return true;
+    };
+    (message.type==='connectionGet'?operation():serial(operation)).then(data=>reply({ok:true,data}),error=>reply({ok:false,error:error.message}));return true;
   }
   if(sender.id===chrome.runtime.id && message.type==='onboardingSave' && sender.url?.split(/[?#]/)[0]===chrome.runtime.getURL('onboarding.html')){
     serial(async()=>{
@@ -295,7 +298,7 @@ chrome.runtime.onMessage.addListener((message, sender, reply) => {
   // The board content script cannot trigger report commands or access stored results.
   const settingsFields = message.type === 'fields' && sender.url?.split(/[?#]/)[0] === chrome.runtime.getURL('settings.html');
   if (sender.id !== chrome.runtime.id || (!settingsFields && !sender.url?.startsWith(chrome.runtime.getURL('report.html')))) return;
-  serial(() => command(message)).then(data => reply({ ok: true, data }), error => reply({ ok: false, error: error.message }));
+  (message.type==='get'?command(message):serial(() => command(message))).then(data => reply({ ok: true, data }), error => reply({ ok: false, error: error.message }));
   return true;
 });
 chrome.alarms.onAlarm.addListener(alarm => { if ([ALARM, DUE_ALARM, 'jbp-now'].includes(alarm.name)) serial(tick).catch(console.error); });
@@ -308,9 +311,9 @@ importScripts('ai-worker.js');
 
 async function syncEmbedded(){
  const base=JbpConnection.from(await read()).baseUrl,allowed=base&&await chrome.permissions.contains({origins:[new URL(base).origin+'/*']}),matches=allowed?[base+'/*']:[],old=await chrome.scripting.getRegisteredContentScripts({ids:['jbp-shell']});
- if(old.length&&JSON.stringify(old[0].matches)===JSON.stringify(matches))return;
+ if(old.length&&JSON.stringify(old[0].matches)===JSON.stringify(matches)&&old[0].js?.includes('src/runtime-messages.js'))return;
  if(old.length)await chrome.scripting.unregisterContentScripts({ids:['jbp-shell']});
- if(allowed)await chrome.scripting.registerContentScripts([{id:'jbp-shell',matches,js:['src/jira-shell.js'],runAt:'document_idle',persistAcrossSessions:true}]);
+ if(allowed)await chrome.scripting.registerContentScripts([{id:'jbp-shell',matches,js:['src/runtime-messages.js','src/jira-shell.js'],runAt:'document_idle',persistAcrossSessions:true}]);
 }
 async function embeddedMessage(message,sender){
  const connection=JbpConnection.from(await read());if(sender.id!==chrome.runtime.id||!sender.tab?.id||sender.frameId!==0||!isJiraPage(sender.url,connection.baseUrl))throw Error('Недопустимая страница Jira.');
@@ -325,7 +328,7 @@ async function embeddedMessage(message,sender){
   if(message.op==='remove'&&allowed(message.key)){await chrome.storage.local.remove(message.key);return true;}throw Error('Недопустимая операция хранилища.');
  }
 
- if(message.type==='embeddedReport'){const cmd=message.command;if(!['get','save','delete','run','fields','dismissNotice','testNotice'].includes(cmd?.type))throw Error('Недопустимая операция отчёта.');return serial(()=>command(cmd));}
+ if(message.type==='embeddedReport'){const cmd=message.command;if(!['get','save','delete','run','fields','dismissNotice','testNotice'].includes(cmd?.type))throw Error('Недопустимая операция отчёта.');return cmd.type==='get'?command(cmd):serial(()=>command(cmd));}
  if(message.type==='embeddedPage'){if(!['metrics.html','report.html','roadmap.html','tools.html','settings.html','help.html','onboarding.html'].includes(message.page))throw Error('Недопустимая страница.');await chrome.tabs.create({url:chrome.runtime.getURL(message.page)});return true;}
  if(message.type==='embeddedStore'){
   if(message.op==='get'&&message.key==='jbpBoardPrefs')return {jbpBoardPrefs:{...JbpBoard.defaults,...(await chrome.storage.local.get('jbpBoardPrefs')).jbpBoardPrefs}};
@@ -334,7 +337,7 @@ async function embeddedMessage(message,sender){
   if(message.op!=='set'||!message.value||typeof message.value!=='object'||JSON.stringify(message.value).length>20000)throw Error('Некорректные настройки.');await chrome.storage.local.set({[message.key]:message.value});return true;
  }
  const section=message.section||'metrics';if(!['metrics','report','help','roadmap','tools','settings'].includes(section))throw Error('Раздел недоступен.');
- let modules=section==='help'?[]:section==='report'?[['JbpReports','src/reports-core.js'],['JbpReportsMount','src/report.js']]:[['JbpUI','src/ui-theme.js'],['JbpBoard','src/board-core.js'],['JbpSprint','src/sprint-core.js'],['JbpSprint.Client','src/sprint-client.js'],['marked','src/vendor/marked.umd.js'],['JbpMarkdown','src/ai-markdown.js'],['JbpAIUI','src/ai-ui.js'],['JbpSprint.mount','src/sprint-ui.js'],['JbpSearchPicker','src/search-picker.js'],['JbpDashboard','src/dashboard-core.js'],['JbpDashboard.load','src/dashboard-client.js'],['JbpCharts','src/dashboard-charts.js'],['JbpDashboard.mount','src/dashboard-ui.js'],['JbpMetricsMount','src/metrics.js']];
+ let modules=section==='help'?[]:section==='report'?[['JbpReports','src/reports-core.js'],['JbpReportsMount','src/report.js']]:[['JbpUI','src/ui-theme.js'],['JbpBoard','src/board-core.js'],['JbpSprint','src/sprint-core.js'],['JbpSprint.Client','src/sprint-client.js'],['marked','src/vendor/marked.umd.js'],['JbpMarkdown','src/ai-markdown.js'],['JbpAIUI','src/ai-ui.js'],['JbpSprint.mountCapacity','src/sprint-capacity.js'],['JbpSprint.mount','src/sprint-ui.js'],['JbpSearchPicker','src/search-picker.js'],['JbpDashboard','src/dashboard-core.js'],['JbpDashboard.load','src/dashboard-client.js'],['JbpCharts','src/dashboard-charts.js'],['JbpDashboard.mount','src/dashboard-ui.js'],['JbpMetricsMount','src/metrics.js']];
  const common=[['JbpUI','src/ui-theme.js'],['JbpBoard','src/board-core.js'],['JbpSprint','src/sprint-core.js'],['JbpSprint.Client','src/sprint-client.js'],['JbpSearchPicker','src/search-picker.js']];
  if(section==='roadmap')modules=[...common,['JbpRoadmap','src/roadmap-core.js'],['JbpRoadmap.Client','src/roadmap-client.js'],['JbpRoadmap.draw','src/roadmap-view.js'],['marked','src/vendor/marked.umd.js'],['JbpMarkdown','src/ai-markdown.js'],['JbpAIUI','src/ai-ui.js'],['cytoscape','src/vendor/cytoscape.min.js'],['JbpRoadmap.createGraph','src/roadmap-graph.js'],['JbpRoadmapMount','src/roadmap.js']];
  if(section==='tools')modules=[...common,['JbpReports','src/reports-core.js'],['JbpTools','src/tools-core.js'],['JbpTools.Client','src/tools-client.js'],['JbpToolsSelection','src/tools-selection.js'],['JbpToolsMount','src/tools.js']];

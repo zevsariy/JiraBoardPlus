@@ -1,0 +1,20 @@
+const {chromium}=require('playwright'),fs=require('node:fs'),path=require('node:path'),assert=require('node:assert/strict');
+(async()=>{const browser=await chromium.launch({channel:'msedge',headless:true});try{
+ const page=await browser.newPage({viewport:{width:1100,height:900}}),calls=[],errors=[];page.on('pageerror',e=>errors.push(e.message));
+ await page.route('**/*',async route=>{const u=new URL(route.request().url());assert.equal(u.hostname,'jira.example.com');if(u.pathname.endsWith('.jspa'))return route.fulfill({contentType:'text/html',body:'<meta charset=utf-8><h1 id="ghx-report-head">Sprint Report</h1>'});calls.push(u.href);let data;
+ if(u.pathname.endsWith('/configuration'))data={type:'scrum',estimation:{field:{fieldId:'customfield_1',displayName:'Story Points'}}};
+ else if(u.pathname.endsWith('/field'))data=[{id:'customfield_1',name:'Story Points'}];
+ else if(u.pathname.endsWith('/sprint'))data={startAt:0,isLast:true,values:[1,2,3].map(id=>({id,name:'Sprint '+id,state:'closed',startDate:`2026-0${id}-02`,completeDate:`2026-0${id}-20`}))};
+ else if(u.pathname.endsWith('/sprintreport')){const id=u.searchParams.get('sprintId');data={contents:{completedIssues:(id==='1'?['D-1']:['D-1','D-2','D-5']).map(key=>({key})),issuesNotCompletedInCurrentSprint:[{key:'D-3'}],puntedIssues:[{key:'D-4'}],issueKeysAddedDuringSprint:{'D-2':true}}};}
+ else if(u.pathname.endsWith('/search'))data={startAt:0,total:5,issues:[1,2,3,4,5].map(n=>({key:'D-'+n,fields:{created:'2026-01-01',issuetype:{name:n===2||n===5?'Bug':n===3?'Task':'Story'},customfield_1:({1:5,2:3,3:2,4:1})[n]??null},changelog:{startAt:0,total:0,histories:[]}}))};
+ else throw Error('Unexpected Jira request '+u.href);return route.fulfill({contentType:'application/json',body:JSON.stringify(data)});
+ });
+ await page.goto('https://jira.example.com/secure/RapidBoard.jspa?rapidView=7&view=reporting&chart=sprintRetrospective&sprint=3');
+ await page.evaluate(()=>{globalThis.chrome={runtime:{onMessage:{addListener(){},removeListener(){}},sendMessage:async m=>({ok:true,data:m.type==='boardPrefsGet'?{sprintTools:true}:m.op==='snapshotList'?[]:{mode:'auto',spField:'',includeSubtasks:false}})}};});
+ for(const name of ['board-core','sprint-core','sprint-client','sprint-capacity','sprint-ui','sprint-report'])await page.addScriptTag({path:path.join(__dirname,'../src/'+name+'.js')});
+ await page.getByRole('button',{name:'Построить диаграмму',exact:true}).waitFor();assert.equal(calls.length,0);await page.locator('[data-cap="count"]').selectOption('3');await page.getByRole('button',{name:'Построить диаграмму',exact:true}).click();await page.locator('[data-cap="status"]').filter({hasText:'Диаграмма построена'}).waitFor();
+ assert.equal(calls.filter(u=>u.includes('/search?')).length,1);assert.equal(calls.filter(u=>u.includes('/sprintreport?')).length,3);assert.equal(await page.locator('.capacity svg').count(),1);assert.ok(await page.locator('.capacity svg rect').count()>3);assert.match(await page.locator('[data-cap="output"]').textContent(),/Частичные итоги/);
+ const before=calls.length;await page.locator('[data-cap="mode"]').selectOption('completed');assert.equal(calls.length,before);assert.equal(await page.locator('rect[aria-label="Sprint 1: Story — 5 SP"]').count(),1);await page.locator('.capacity summary').click();assert.ok(await page.locator('.capacity tbody tr').count()>3);
+ await page.locator('.capacity').screenshot({path:path.join(__dirname,'../test-output/sprint-capacity.png')});await page.setViewportSize({width:390,height:850});assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);
+ await page.evaluate(()=>{history.pushState({},'','?rapidView=7&view=work');dispatchEvent(new PopStateEvent('popstate'));});await page.locator('[data-jbp-sprint]').waitFor({state:'detached'});assert.deepEqual(errors,[]);console.log('Sprint capacity UI OK: native report integration, opt-in load, stacked chart, unknown estimates, no refetch on toggle, mobile and disposal.');
+}finally{await browser.close();}})().catch(e=>{console.error(e);process.exitCode=1;});

@@ -123,6 +123,7 @@
     $('restore').onclick=safe(async()=>{const snap=saved.find(s=>s.id===$('saved').value);if(!snap)throw new Error('Выберите снимок.');use(snap.dataset,true);status('Открыт сохранённый снимок с правилами на момент сохранения. Для текущих правил нажмите «Обновить данные». Описания и полная история в нём не хранятся.');});
     $('remove-snapshot').onclick=safe(async()=>{const id=$('saved').value;if(!id||snapshotBusy)return;if(!confirm('Удалить выбранный локальный снимок?'))return;$('snapshot-menu').open=false;snapshotBusy=true;snapshotControls();try{await store('snapshotDelete',{id});if(disposed)return;await refreshSnapshots('');if(!disposed){$('comparison').replaceChildren();status('Снимок удалён.');}}finally{snapshotBusy=false;if(!disposed)snapshotControls();}});
     $('compare').onclick=safe(async()=>{$('snapshot-menu').open=false;const snap=saved.find(s=>s.id===$('saved').value);if(!data||!snap)throw new Error('Загрузите данные и выберите снимок.');const other=snap.dataset;if(other.estimation.field!==data.estimation.field||other.estimation.unit!==data.estimation.unit||other.profile.includeSubtasks!==data.profile.includeSubtasks)throw new Error('Нельзя сравнить разные поля/единицы оценок или разные правила учёта подзадач.');const a=S.metrics(S.selection(other,selected,other.profile.includeSubtasks,selectedTypes)),b=S.metrics(filtered());$('comparison').replaceChildren(el('h4',`Сравнение с текущими фильтрами (${selectedTypes.join(', ')||'все типы'}): ${other.sprint.name} → ${data.sprint.name}`));for(const [label,key]of [['Завершены','completed'],['Добавлены','added'],['Не завершены','unfinished'],['Удалены','removed']])$('comparison').append(el('p',`${label}: ${a[key]} → ${b[key]} (${b[key]-a[key]>=0?'+':''}${b[key]-a[key]})`));});
+    const disposeCapacity=features.metrics!==false&&S.mountCapacity?S.mountCapacity(root.querySelector('.panel'),{client,boardId,sprintId,getProfile:async()=>{await ensureProfile();return getProfile();}}):()=>{};
     refreshSnapshots();
     let profileReady=false,profileRequest;
     function ensureProfile(){
@@ -139,7 +140,7 @@
     if(location.protocol==='chrome-extension:')chrome.storage.local?.get('jbpBoardPrefs').then(value=>{if(!disposed){features.health=value.jbpBoardPrefs?.sprintHealth!==false;if(data)render();}}).catch(()=>{});
     chrome.runtime.onMessage?.addListener(onPrefs);
     if(location.protocol==='chrome-extension:')chrome.storage?.onChanged?.addListener(onStorage);
-    const dispose=()=>{disposed=true;clearTimeout(rulesTimer);chrome.runtime.onMessage?.removeListener?.(onPrefs);if(location.protocol==='chrome-extension:')chrome.storage?.onChanged?.removeListener?.(onStorage);abort.abort();onFilter(null);root.replaceChildren();};
+    const dispose=()=>{disposeCapacity();disposed=true;clearTimeout(rulesTimer);chrome.runtime.onMessage?.removeListener?.(onPrefs);if(location.protocol==='chrome-extension:')chrome.storage?.onChanged?.removeListener?.(onStorage);abort.abort();onFilter(null);root.replaceChildren();};
     return dispose;
   };
 })();

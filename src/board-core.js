@@ -1,10 +1,15 @@
 globalThis.JbpBoard = (() => {
-  const defaults = { nativeRefreshMode: 'jira', nativeRefreshSeconds: 300, nativeRefreshPauseHidden: true, teamField: 'customfield_10200', parentBoard: false, parentBacklog: false, parentTypes: "Task, Story", epicLinkField: "Epic Link", componentLinkField: "Parent Link", epicFields: "", componentFields: "", privateNotes: false, backlog: false, build: false, blockedStatusNames: 'Blocked', unblockingStatusNames: 'Done, Closed, Resolved, Obsolete', buildStatusNames: 'Resolved', buildField: 'Fixed In', visuals: true, sprintTools: false, sprintExport: true, sprintAssignee: true, sprintMetrics: true, sprintHealth: true, team: true, summary: true, stale: true, unassigned: true, overdue: true, flagged: true, daily: false, scope: false, scopeOutline: true, scopeLabel: true, scopeFill: false, fillColor: '#f0eaff', borderWidth: 2, age: false, agePopup: true, color: '#8b5cf6', staleDays: 3, source: 'timepiece', calendar: 'normalHours', timeUnit: 'hours', timeMode: 'last', workStatusNames: 'In Progress', doneStatusNames: 'Done, Closed, Resolved, Obsolete', doneCategory: true };
+  const defaults = { cardFieldsBoard: false, cardFieldsBacklog: false, cardFields: '', cardFieldsSource: 'epic', cardFieldsStyle: 'rows', cardFieldsEmpty: false, nativeRefreshMode: 'jira', nativeRefreshSeconds: 300, nativeRefreshPauseHidden: true, teamField: 'customfield_10200', parentBoard: false, parentBacklog: false, parentTypes: "Task, Story", epicLinkField: "Epic Link", componentLinkField: "Parent Link", epicFields: "", componentFields: "", privateNotes: false, backlog: false, build: false, blockedStatusNames: 'Blocked', unblockingStatusNames: 'Done, Closed, Resolved, Obsolete', buildStatusNames: 'Resolved', buildField: 'Fixed In', visuals: true, sprintTools: false, sprintExport: true, sprintAssignee: true, sprintMetrics: true, sprintHealth: true, team: true, summary: true, stale: true, unassigned: true, overdue: true, flagged: true, daily: false, scope: false, scopeOutline: true, scopeLabel: true, scopeFill: false, fillColor: '#f0eaff', borderWidth: 2, age: false, agePopup: true, color: '#8b5cf6', staleDays: 3, source: 'timepiece', calendar: 'normalHours', timeUnit: 'hours', timeMode: 'last', workStatusNames: 'In Progress', doneStatusNames: 'Done, Closed, Resolved, Obsolete', doneCategory: true };
   function validate(input) {
     const p = { ...defaults, ...input };
     if(!['jira','manual','auto'].includes(p.nativeRefreshMode))throw Error('Неизвестный режим обновления Jira.');
     p.nativeRefreshSeconds=Number(p.nativeRefreshSeconds);
     if(!Number.isInteger(p.nativeRefreshSeconds)||p.nativeRefreshSeconds<30||p.nativeRefreshSeconds>3600)throw Error('Интервал обновления Jira: от 30 до 3600 секунд.');
+    if(typeof p.cardFields!=='string'||p.cardFields.length>2000||parentList(p.cardFields).length>8)throw Error('Поля карточек: не более 8 названий / ID.');
+    p.cardFields=p.cardFields.trim();
+    if((p.cardFieldsBoard||p.cardFieldsBacklog)&&!p.cardFields)throw Error('Выберите поля для карточек.');
+    if(!['epic','component'].includes(p.cardFieldsSource))throw Error('Выберите родителя: Epic или Component.');
+    if(!['rows','chips'].includes(p.cardFieldsStyle))throw Error('Неизвестный вид полей карточек.');
     p.teamField = String(p.teamField).trim();
     if (!/^customfield_\d+$/.test(p.teamField)) throw Error('Поле Team: укажите ID вида customfield_10107.');
     for(const k of ['parentTypes','epicLinkField','componentLinkField','epicFields','componentFields']){if(typeof p[k]!=='string'||p[k].length>4000)throw Error('Настройки родительских полей: допустим текст до 4000 символов.');p[k]=p[k].trim();}
@@ -155,6 +160,31 @@ globalThis.JbpBoard = (() => {
   function parentList(value){return [...new Set(String(value||'').split(/[\n,]/).map(v=>v.trim()).filter(Boolean))];}
   function parentKey(value){if(value==null||value==='')return null;const v=typeof value==='object'?(value.key||value.data?.key):value;if(!/^[A-Z][A-Z0-9_]*-\d+$/.test(v||''))throw Error('Неизвестный формат ссылки на родителя.');return v;}
   function parentText(value){if(value==null||value==='')return 'Не заполнено';if(Array.isArray(value))return value.length?value.map(parentText).join(', '):'Не заполнено';if(typeof value==='object'){for(const k of ['displayName','name','value','key'])if(value[k]!=null)return parentText(value[k]);return JSON.stringify(value);}return String(value);}
+  function cardFieldConfig(fields,names){return parentList(names).map(name=>{try{const id=resolveBuildField(fields,name);return {id,name:fields.find(f=>f.id===id).name};}catch(e){return {name,error:e.message};}});}
+  function cardValue(value,depth=0){
+    if(depth>8)return '…';
+    if(value==null||value===''||(Array.isArray(value)&&!value.length))return '';
+    if(typeof value==='boolean')return value?'Да':'Нет';
+    if(Array.isArray(value))return value.slice(0,50).map(v=>cardValue(v,depth+1)).filter(Boolean).join(', ')+(value.length>50?'…':'');
+    if(typeof value==='object'){
+      if(value.type==='doc'||value.type==='paragraph')return (value.content||[]).map(v=>cardValue(v,depth+1)).join(value.type==='doc'?'\n':'');
+      if(value.type==='text')return String(value.text||'');
+      if(value.type==='hardBreak')return '\n';
+      for(const key of ['displayName','name','value','key'])if(value[key]!=null)return cardValue(value[key],depth+1)+(value.child?' / '+cardValue(value.child,depth+1):'');
+      return JSON.stringify(value);
+    }
+    return String(value);
+  }
+  function cardFieldValues(fields,config){return config.map(f=>{const missing=!f.id||!Object.hasOwn(fields,f.id),value=missing?'':cardValue(fields[f.id]);return {name:f.name,value:value.length>12000?value.slice(0,12000)+'…':value,empty:!missing&&!value,error:f.error||(missing?'Поле недоступно':'')};});}
+  async function cardParent(issue,links,source,fetchParent){
+    let current=issue;const seen=new Set([issue.key]);
+    for(const link of source==='component'?[links.epic,links.component]:[links.epic]){
+      if(!link||!Object.hasOwn(current.fields,link))throw Error('Поле связи с родителем недоступно.');
+      const key=parentKey(current.fields[link]);if(!key)return null;
+      if(seen.has(key))throw Error('Цикл родительских связей.');seen.add(key);current=await fetchParent(key);
+    }
+    return current;
+  }
   function parentConfig(fields,p){const resolve=name=>{const id=resolveBuildField(fields,name);return {id,name:fields.find(f=>f.id===id).name};};return {epic:resolve(p.epicLinkField).id,component:p.componentFields?resolve(p.componentLinkField).id:null,epicFields:parentList(p.epicFields).map(resolve),componentFields:parentList(p.componentFields).map(resolve)};}
   async function parentInfo(issue,p,c,fetchParent){
     if(!matchesStatus({name:issue.fields.issuetype?.name},p.parentTypes))return null;
@@ -170,5 +200,5 @@ globalThis.JbpBoard = (() => {
     }
     return lines.join('\n');
   }
-  return {parentList,parentKey,parentText,parentConfig,parentInfo,defaults,validate,resolveBuildField,hasBuild,statusRules,resolveStatusRules,duration,statusSince,daily,isDone,blockerKeys,blockage,formatHours,jiraTimes,addedKeys,timepieceValue,timepieceStatuses};
+  return {cardParent,cardFieldConfig,cardValue,cardFieldValues,parentList,parentKey,parentText,parentConfig,parentInfo,defaults,validate,resolveBuildField,hasBuild,statusRules,resolveStatusRules,duration,statusSince,daily,isDone,blockerKeys,blockage,formatHours,jiraTimes,addedKeys,timepieceValue,timepieceStatuses};
 })();

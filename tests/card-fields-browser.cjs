@@ -1,0 +1,25 @@
+const {chromium}=require('playwright'),fs=require('node:fs'),path=require('node:path'),assert=require('node:assert/strict');
+(async()=>{const browser=await chromium.launch({channel:'msedge',headless:true});try{
+ const page=await browser.newPage({viewport:{width:1100,height:900}}),calls=[],errors=[];page.on('pageerror',e=>errors.push(e.message));
+ await page.route('**/*',async route=>{const u=new URL(route.request().url());assert.equal(u.hostname,'jira.example.com');if(u.pathname.endsWith('.jspa'))return route.fulfill({contentType:'text/html',body:'<meta charset=utf-8><style>.ghx-issue{width:290px;padding:12px;margin:12px;border:1px solid #ddd;display:inline-block;vertical-align:top}</style><div id="ghx-pool"><div class="ghx-issue" data-issue-key="D-1">D-1 · Task</div><div class="ghx-issue" data-issue-key="D-2">D-2 · Task</div></div>'});calls.push(u.pathname);let data;
+ if(u.pathname.endsWith('/field'))data=[{id:'customfield_1',name:'Epic Link'},{id:'customfield_2',name:'Parent Link'},{id:'duedate',name:'Due Date'},{id:'customfield_3',name:'Risk'},{id:'customfield_4',name:'Empty'},{id:'customfield_5',name:'Unavailable'}];
+ else if(u.pathname.endsWith('/D-3'))data={key:'D-3',fields:{customfield_2:'D-4',duedate:'2027-01-01',customfield_3:'Epic risk'}};
+ else if(u.pathname.endsWith('/D-4'))data={key:'D-4',fields:{duedate:'2028-06-15',customfield_3:'High <img src=x onerror=alert(1)> https://example.com/info D-9',customfield_4:null}};
+ else data={key:u.pathname.split('/').pop(),fields:{issuetype:{name:'Task'},customfield_1:'D-3',duedate:'2030-01-01'}};
+ await route.fulfill({contentType:'application/json',body:JSON.stringify(data)});
+ });
+ await page.goto('https://jira.example.com/secure/RapidBoard.jspa?rapidView=7&view=work');
+ await page.evaluate(()=>{globalThis.preferences={backlog:true,parentBoard:true,parentBacklog:true,epicFields:'Risk',componentFields:'Due Date',cardFieldsBoard:true,cardFieldsBacklog:true,cardFieldsSource:'component',cardFields:'Due Date,Risk,Empty,Unavailable',summary:false};globalThis.chrome={runtime:{onMessage:{addListener(fn){globalThis.applyPrefs=patch=>{Object.assign(preferences,patch);fn({type:'boardPrefsChanged',prefs:preferences});};}},sendMessage:async()=>({ok:true,data:preferences})}};});
+ for(const name of ['board-core','active-board'])await page.addScriptTag({path:path.join(__dirname,'../src/'+name+'.js')});
+ await page.waitForFunction(()=>document.querySelectorAll('[data-jbp-card]').length===2);
+ assert.equal(await page.locator('button.custom .value').filter({hasText:'2028-06-15'}).count(),2);assert.equal(await page.locator('button.custom .value').filter({hasText:'2030-01-01'}).count(),0);assert.equal(await page.locator('button.custom .name').filter({hasText:'Empty'}).count(),0);assert.equal(await page.locator('button.custom.unknown').count(),2);
+ assert.equal(calls.filter(p=>p.endsWith('/D-3')).length,1);assert.equal(calls.filter(p=>p.endsWith('/D-4')).length,1);assert.equal(calls.filter(p=>p.endsWith('/field')).length,1);
+ await page.locator('button.custom').first().hover();await page.locator('[data-jbp-tooltip] a').waitFor();assert.equal(await page.locator('[data-jbp-tooltip] a').first().getAttribute('href'),'/browse/D-4');
+ await page.keyboard.press('Escape');await page.getByRole('button',{name:'↥ Родители',exact:true}).first().hover();assert.equal(await page.locator('[data-jbp-tooltip] a[href="/browse/D-3"]').count(),1);assert.equal(await page.locator('[data-jbp-tooltip] a[href="/browse/D-4"]').count(),1);
+ await page.keyboard.press('Escape');await page.locator('button.custom').filter({hasText:'Risk'}).first().focus();assert.equal(await page.locator('[data-jbp-tooltip] a[href="https://example.com/info"]').count(),1);assert.equal(await page.locator('[data-jbp-tooltip] img').count(),0);assert.equal(await page.locator('[data-jbp-tooltip] a[href="/browse/D-9"]').count(),1);
+ await page.keyboard.press('Escape');const before=calls.length;await page.evaluate(()=>applyPrefs({cardFieldsStyle:'chips',cardFieldsEmpty:true}));await page.getByText('Не заполнено',{exact:true}).first().waitFor();assert.equal(calls.length,before);assert.equal(await page.locator('button.custom.row').count(),0);
+ await page.evaluate(()=>{history.pushState({},'','?rapidView=7&view=planning');document.getElementById('ghx-pool').id='ghx-plan';dispatchEvent(new PopStateEvent('popstate'));});assert.equal(calls.length,before);
+ await page.evaluate(()=>applyPrefs({cardFieldsSource:'epic'}));await page.getByText('2027-01-01',{exact:true}).first().waitFor();
+ await page.screenshot({path:path.join(__dirname,'../test-output/card-parent-fields.png'),fullPage:true});
+ await page.evaluate(()=>applyPrefs({cardFieldsBoard:false,cardFieldsBacklog:false,parentBoard:false,parentBacklog:false}));await page.locator('[data-jbp-card]').first().waitFor({state:'detached'});assert.deepEqual(errors,[]);console.log('Card parent fields OK: selected ancestor, shared cache, both layouts, empty/access states, board/backlog, safe linked popups and cleanup.');
+}finally{await browser.close();}})().catch(e=>{console.error(e);process.exitCode=1;});

@@ -157,3 +157,9 @@ test('native refresh commands reject unrelated senders and use stored preference
  assert.equal(await h.run('executions.length'),0);
  const r=await h.message({type:'nativeRefreshConfigure',mode:'manual',seconds:1},{id:'test',tab:{id:1},frameId:0,url:'https://jira.example.com/secure/RapidBoard.jspa?rapidView=1'});assert.equal(r.ok,true);assert.equal(await h.run('executions[1].args[0].seconds'),300);assert.equal(await h.run('executions[1].world'),'MAIN');
 });
+
+test('settings and sprint read operations respond while a serialized job is blocked',async()=>{
+ const h=harness();await h.run('chain');await h.run('globalThis.unblock=null;serial(()=>new Promise(r=>unblock=r));void 0;');
+ const sender={id:'test',url:'https://jira.example.com/secure/RapidBoard.jspa?rapidView=7',tab:{id:1},frameId:0};
+ try{for(const m of [{type:'boardPrefsGet'},{type:'sprintStore',op:'profileGet',boardId:'7'},{type:'sprintStore',op:'snapshotList',boardId:'7'}]){const r=await Promise.race([h.message(m,sender),new Promise((_,reject)=>setTimeout(()=>reject(Error('read blocked by network queue')),250))]);assert.equal(r.ok,true);}}finally{await h.run('unblock()');}
+});

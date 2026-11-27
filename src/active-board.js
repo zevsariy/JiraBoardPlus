@@ -10,11 +10,19 @@
   let tooltip,tooltipAnchor,hideTimer;
   function hideTooltip(){clearTimeout(hideTimer);tooltip?.remove();tooltip=null;tooltipAnchor?.setAttribute('aria-expanded','false');tooltipAnchor=null;}
   function scheduleHide(){clearTimeout(hideTimer);hideTimer=setTimeout(hideTooltip,220);}
+  function linkText(container,text){
+    const pattern=/https?:\/\/[^\s<>]+|\b[A-Z][A-Z0-9_]*-\d+\b/g;let at=0;
+    for(const match of String(text).matchAll(pattern)){
+      container.append(document.createTextNode(String(text).slice(at,match.index)));const raw=match[0],value=raw.replace(/[),.;]+$/,'');
+      const a=document.createElement('a');a.textContent=value;a.href=value.startsWith('http')?value:`${context}/browse/${encodeURIComponent(value)}`;a.target='_blank';a.rel='noopener noreferrer';a.addEventListener('click',e=>e.stopPropagation());a.addEventListener('pointerdown',e=>e.stopPropagation());container.append(a,document.createTextNode(raw.slice(value.length)));at=match.index+raw.length;
+    }
+    container.append(document.createTextNode(String(text).slice(at)));
+  }
   function showTooltip(anchor,title,description,items=[]){
     hideTooltip();tooltipAnchor=anchor;anchor.setAttribute('aria-expanded','true');tooltip=document.createElement('div');tooltip.dataset.jbpTooltip='';
     Object.assign(tooltip.style,{position:'fixed',zIndex:'2147483647',width:'330px',maxWidth:'calc(100vw - 16px)',pointerEvents:'auto'});
-    const root=tooltip.attachShadow({mode:'open'});root.innerHTML='<style>:host{font:12px "Segoe UI",sans-serif;color:#172b4d}.box{background:white;border:1px solid #d9ddf0;border-radius:7px;box-shadow:0 8px 30px #172b4d33;padding:14px;max-height:min(360px,calc(100vh - 24px));overflow:auto}h3{margin:0 0 5px;font-size:13px}p{white-space:pre-line;font-size:11px;color:#667085;line-height:1.5;margin:5px 0 10px}table{font:inherit;width:100%;border-collapse:collapse}td{padding:6px 3px;border-top:1px solid #eef0f7;overflow-wrap:anywhere}td:last-child{white-space:nowrap;text-align:right}.current{background:#eef0ff;color:#303bba;font-weight:600}</style><section class="box" role="tooltip"><h3></h3><p></p><table><tbody></tbody></table></section>';globalThis.JbpUI?.mount(root,true);
-    root.querySelector('h3').textContent=title;root.querySelector('p').textContent=description;
+    const root=tooltip.attachShadow({mode:'open'});root.innerHTML='<style>:host{font:12px "Segoe UI",sans-serif;color:#172b4d}.box{background:white;border:1px solid #d9ddf0;border-radius:7px;box-shadow:0 8px 30px #172b4d33;padding:14px;max-height:min(360px,calc(100vh - 24px));overflow:auto}h3{margin:0 0 5px;font-size:13px}p{overflow-wrap:anywhere;white-space:pre-line;font-size:11px;color:#667085;line-height:1.5;margin:5px 0 10px}table{font:inherit;width:100%;border-collapse:collapse}td{padding:6px 3px;border-top:1px solid #eef0f7;overflow-wrap:anywhere}td:last-child{white-space:nowrap;text-align:right}.current{background:#eef0ff;color:#303bba;font-weight:600}a{color:#0052cc;text-decoration:underline}a:focus-visible{outline:2px solid #0052cc;outline-offset:2px}</style><section class="box" role="tooltip"><h3></h3><p></p><table><tbody></tbody></table></section>';globalThis.JbpUI?.mount(root,true);
+    root.querySelector('h3').textContent=title;linkText(root.querySelector('p'),description);
     for(const item of items){const tr=document.createElement('tr');if(item.current)tr.className='current';for(const value of [item.name,B.formatHours(item.hours,prefs.timeUnit)]){const td=document.createElement('td');td.textContent=value;tr.append(td);}root.querySelector('tbody').append(tr);}
     tooltip.addEventListener('pointerenter',()=>clearTimeout(hideTimer));tooltip.addEventListener('pointerleave',scheduleHide);document.body.append(tooltip);
     const rect=anchor.getBoundingClientRect(),height=tooltip.offsetHeight;tooltip.style.left=`${Math.max(8,Math.min(rect.left,innerWidth-tooltip.offsetWidth-8))}px`;tooltip.style.top=`${Math.max(8,rect.bottom+height+8<=innerHeight?rect.bottom+6:rect.top-height-6)}px`;
@@ -84,8 +92,9 @@
     throw new Error('Слишком много активных спринтов.');
   }
 
+  function cardFieldsEnabled(p=prefs){return planning()?p.cardFieldsBacklog:p.cardFieldsBoard;}
   function parentEnabled(p=prefs){return planning()?p.parentBacklog:p.parentBoard;}
-  function fetchKey(p){return JSON.stringify([parentEnabled(p),p.parentTypes,p.epicLinkField,p.componentLinkField,p.epicFields,p.componentFields,p.build,p.buildField,p.buildStatusNames,p.blockedStatusNames,p.unblockingStatusNames,p.daily,p.staleDays,p.flagged,p.doneStatusNames,p.doneCategory,p.age,p.source,p.calendar,p.timeMode]);}
+  function fetchKey(p){return JSON.stringify([cardFieldsEnabled(p),p.cardFields,p.cardFieldsSource,parentEnabled(p),p.parentTypes,p.epicLinkField,p.componentLinkField,p.epicFields,p.componentFields,p.build,p.buildField,p.buildStatusNames,p.blockedStatusNames,p.unblockingStatusNames,p.daily,p.staleDays,p.flagged,p.doneStatusNames,p.doneCategory,p.age,p.source,p.calendar,p.timeMode]);}
   function draw(pool){
     if(tooltip&&!tooltipAnchor?.isConnected)hideTooltip();
     let attention=0,added=0;const visible=cards(pool);
@@ -96,6 +105,7 @@
       if(scoped&&prefs.scopeFill){card.dataset.jbpFilled='';card.style.setProperty('--jbp-fill',prefs.fillColor);}else{card.removeAttribute('data-jbp-filled');card.style.removeProperty('--jbp-fill');}
       if(scoped&&prefs.scopeLabel)tags.push({type:'scope',text:'+ После старта',title:`Добавлена после старта: ${additions.get(key).join(', ')}.\nИсточник: Jira Sprint Report.${scopeError?'\nПоследние доступные данные; обновление не удалось.':''}`});
       if(data){
+        if(cardFieldsEnabled()&&data.cardFields)for(const f of data.cardFields){if(!f.empty||prefs.cardFieldsEmpty)tags.push({type:'custom',tone:f.error?'unknown':'',text:f.name+': '+(f.error?'?':f.value||'Не заполнено'),title:(f.parent?f.parent+' · ':'')+f.name+'\n'+(f.error||f.value||(f.parentMissing?'Родитель не назначен':'Не заполнено')),fieldValue:f.error?'Недоступно':f.value||(f.parentMissing?'Нет родителя':'Не заполнено'),fieldName:f.name});}
         if(parentEnabled()&&data.parents)tags.push({type:"parents",text:"↥ Родители",title:data.parents});
         if(prefs.daily){const daily=(data.daily||[]).filter(t=>prefs[t.type]);if(daily.length)attention++;tags.push(...daily);}
         if(prefs.build&&data.build)tags.push({type:'build',text:'Есть билд',title:`Поле ${prefs.buildField} заполнено; статус соответствует настройкам.`});
@@ -104,16 +114,17 @@
         if(data.error)tags.push({type:'error',text:'Данные: ?',title:`${data.error}${data.daily||data.hours!=null?'\nПоказаны последние доступные данные.':''}`});
       }
       const old=card.querySelector('[data-jbp-card]');
-      const signature=JSON.stringify([tags,prefs.agePopup,prefs.timeUnit,prefs.timeMode,prefs.source]);
+      const signature=JSON.stringify([tags,prefs.cardFieldsStyle,prefs.cardFieldsEmpty,prefs.agePopup,prefs.timeUnit,prefs.timeMode,prefs.source]);
       if(old?.shadowRoot&&old.dataset.signature===signature)continue;
       if(old&&tooltipAnchor&&old.shadowRoot?.contains(tooltipAnchor))hideTooltip();old?.remove();if(!tags.length)continue;
       const host=document.createElement('div');host.dataset.jbpCard='';host.dataset.signature=signature;
-      const root=host.attachShadow({mode:'open'});root.innerHTML='<style>:host{font:11px "Segoe UI",sans-serif;pointer-events:auto!important}.tags{display:flex;flex-wrap:wrap;gap:3px;pointer-events:auto}button{font:inherit;border:0;padding:2px 5px;background:#fff0ce;color:#694600;border-radius:3px;line-height:1.4;pointer-events:auto!important;cursor:help;display:inline-flex;align-items:center;gap:4px}.age{background:#edf0ff;color:#333e8a}.scope{background:#eee8ff;color:#422d73}.blocked{background:#ffebe6;color:#a02018}.build,.unblocked{background:#dcf5e7;color:#155c37}.error,.unknown{background:#fff0ce;color:#694600}</style><div class="tags"></div>';globalThis.JbpUI?.mount(root,true);
+      const root=host.attachShadow({mode:'open'});root.innerHTML='<style>:host{font:11px "Segoe UI",sans-serif;pointer-events:auto!important}.tags{display:flex;flex-wrap:wrap;gap:3px;pointer-events:auto}button{font:inherit;border:0;padding:2px 5px;background:#fff0ce;color:#694600;border-radius:3px;line-height:1.4;pointer-events:auto!important;cursor:help;display:inline-flex;align-items:center;gap:4px}.age{background:#edf0ff;color:#333e8a}.scope{background:#eee8ff;color:#422d73}.blocked{background:#ffebe6;color:#a02018}.build,.unblocked{background:#dcf5e7;color:#155c37}.error,.unknown{background:#fff0ce;color:#694600}.custom{background:#f1f4f9;color:#344563;max-width:100%;min-width:0;overflow:hidden;text-align:left}.custom .name{font-weight:600;flex-shrink:0;max-width:45%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.custom .value{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}.custom.row{flex-basis:100%;justify-content:space-between;padding:4px 6px;border-left:2px solid #b8c6d9}.custom.row .value{text-align:right}.custom.unknown{background:#fff0ce;color:#694600}</style><div class="tags"></div>';globalThis.JbpUI?.mount(root,true);
       for(const tag of tags){
         const button=document.createElement('button');button.type='button';button.textContent=tag.text;button.className=`${tag.type||''} ${tag.tone||''}`;button.title=tag.title;
+        if(tag.type==='custom'){button.classList.toggle('row',prefs.cardFieldsStyle==='rows');const name=document.createElement('span'),value=document.createElement('span');name.className='name';name.textContent=tag.fieldName;value.className='value';value.textContent=tag.fieldValue;button.replaceChildren(name,value);button.setAttribute('aria-label',tag.text);}
         if(tag.type==='age'){const icon=document.createElementNS('http://www.w3.org/2000/svg','svg');icon.setAttribute('viewBox','0 0 16 16');icon.setAttribute('width','13');icon.setAttribute('height','13');icon.setAttribute('aria-hidden','true');icon.innerHTML='<circle cx="8" cy="8" r="6" fill="none" stroke="currentColor" stroke-width="1.4"/><path d="M8 4v4l3 2" fill="none" stroke="currentColor" stroke-width="1.4"/>';button.prepend(icon);}
         const popup=tag.type!=='age'||prefs.agePopup;
-        const show=()=>{if(!popup)return;showTooltip(button,tag.type==='age'?`${tag.source==='timepiece'?'Timepiece':'Jira'} · ${key}`:`${tag.text} · ${key}`,tag.title,tag.items||[]);};
+        const show=()=>{if(!popup)return;showTooltip(button,tag.type==='age'?`${tag.source==='timepiece'?'Timepiece':'Jira'} · ${key}`:tag.type==='custom'?`${tag.fieldName} · ${key}`:`${tag.text} · ${key}`,tag.title,tag.items||[]);};
         for(const type of ['pointerdown','mousedown','dblclick'])button.addEventListener(type,e=>e.stopPropagation());
         button.addEventListener('click',e=>{e.preventDefault();e.stopPropagation();show();});
         if(popup){button.title='';button.setAttribute('aria-expanded','false');button.addEventListener('pointerenter',show);button.addEventListener('pointerleave',scheduleHide);button.addEventListener('focus',show);button.addEventListener('blur',scheduleHide);}
@@ -130,7 +141,7 @@
   }
   async function refresh(){
     const id=route();
-    if(!id||!prefs.visuals||(planning()&&!prefs.backlog)||!(prefs.daily||prefs.scope||prefs.age||prefs.build||parentEnabled())){
+    if(!id||!prefs.visuals||(planning()&&!prefs.backlog)||!(prefs.daily||prefs.scope||prefs.age||prefs.build||parentEnabled()||cardFieldsEnabled())){
       controller?.abort();if(current){clean();rows.clear();additions.clear();scopeAt=0;current='';errors=[];}return;
     }
     if(current!==id){controller?.abort();clean();rows.clear();additions.clear();scopeAt=0;scopeError='';fetchedAt=0;errors=[];current=id;}
@@ -140,7 +151,7 @@
     draw(pool);if(Date.now()<retryAt)return;if(running){rerun=true;return;}
     const ttl=prefs.nativeRefreshMode==='auto'?prefs.nativeRefreshSeconds*1000:300000,auto=prefs.nativeRefreshMode!=='manual';
     const signature=fetchKey(prefs),keys=[...new Set(cards(pool).map(c=>c.dataset.issueKey))].slice(0,300);
-    const queue=(prefs.daily||prefs.age||prefs.build||parentEnabled())?keys.filter(k=>forceNext||!rows.has(k)||rows.get(k).config!==signature||(auto&&Date.now()-rows.get(k).at>=ttl)):[];
+    const queue=(prefs.daily||prefs.age||prefs.build||parentEnabled()||cardFieldsEnabled())?keys.filter(k=>forceNext||!rows.has(k)||rows.get(k).config!==signature||(auto&&Date.now()-rows.get(k).at>=ttl)):[];
     const scopeDue=prefs.scope&&(forceNext||!scopeAt||(auto&&Date.now()-scopeAt>=ttl));
     if(!queue.length&&!scopeDue)return;
     forceNext=false;running=true;controller=new AbortController();const signal=controller.signal,p=prefs,nextRows=new Map(rows);let nextScope=additions,nextScopeAt=scopeAt,nextScopeError=scopeError;const nextErrors=[];
@@ -154,13 +165,16 @@
       if(p.build&&queue.length){try{buildField=B.resolveBuildField(await fields(),p.buildField);}catch(e){if(signal.aborted)throw e;buildError=e.message;}}
       let parentConfig,parentError;const parentCache=new Map();
       if(parentEnabled(p)&&queue.length){try{parentConfig=B.parentConfig(await fields(),p);}catch(e){if(signal.aborted)throw e;parentError=e.message;}}
-      const fetchParent=key=>{if(!parentCache.has(key)){const fields=[...new Set(['issuetype',parentConfig.component,...parentConfig.epicFields.map(f=>f.id),...parentConfig.componentFields.map(f=>f.id)].filter(Boolean))];parentCache.set(key,get(`api/2/issue/${key}?fields=${fields.join(',')}`,signal).then(i=>{if(!i.fields)throw Error('Поля родителя недоступны');return i;}));}return parentCache.get(key);};
+      let cardConfig=[],cardLinks,cardError;
+      if(cardFieldsEnabled(p)&&queue.length){try{const catalog=await fields();cardConfig=B.cardFieldConfig(catalog,p.cardFields);cardLinks={epic:B.resolveBuildField(catalog,p.epicLinkField),component:p.cardFieldsSource==='component'?B.resolveBuildField(catalog,p.componentLinkField):null};}catch(e){if(signal.aborted)throw e;cardError=e.message;cardConfig=B.parentList(p.cardFields).map(name=>({name,error:e.message}));}}
+      const fetchParent=key=>{if(!parentCache.has(key)){const fields=[...new Set(['issuetype',parentConfig?.component,cardLinks?.component,...(parentConfig?.epicFields||[]).map(f=>f.id),...(parentConfig?.componentFields||[]).map(f=>f.id),...cardConfig.filter(f=>f.id).map(f=>f.id)].filter(Boolean))];parentCache.set(key,get(`api/2/issue/${key}?fields=${fields.join(',')}`,signal).then(i=>{if(!i.fields)throw Error('Поля родителя недоступны');return i;}));}return parentCache.get(key);};
       const linked=new Map();
       const linkedStatus=key=>{if(!linked.has(key))linked.set(key,get(`api/2/issue/${key}?fields=status`,signal).then(v=>{if(!v.fields?.status?.name)throw new Error('Статус недоступен');return {key,status:v.fields.status};}).catch(e=>{if(signal.aborted)throw e;return {key,error:e.message};}));return linked.get(key);};
       await (async()=>{while(queue.length&&!signal.aborted&&Date.now()>=retryAt){const key=queue.shift();try{
-        const fields=['issuetype',...(parentConfig?[parentConfig.epic]:[]),...(buildField?[buildField]:[]),'updated','assignee','duedate','status','created',...(p.daily&&p.flagged?['issuelinks']:[])];
+        const fields=['issuetype',...(cardLinks?[cardLinks.epic]:[]),...(parentConfig?[parentConfig.epic]:[]),...(buildField?[buildField]:[]),'updated','assignee','duedate','status','created',...(p.daily&&p.flagged?['issuelinks']:[])];
         const issue=await get(`api/2/issue/${key}?fields=${fields.join(',')}${p.age&&p.source==='jira'?'&expand=changelog':''}`,signal);if(!issue.fields)throw new Error('Ответ Jira не содержит fields.');
         const entry={at:Date.now(),config:signature,source:p.source,daily:p.daily?B.daily(issue,p.staleDays,Date.now(),p):[]};
+        if(cardFieldsEnabled(p)){try{if(cardError)throw Error(cardError);const parent=await B.cardParent(issue,cardLinks,p.cardFieldsSource,fetchParent);entry.cardFields=parent?B.cardFieldValues(parent.fields,cardConfig).map(f=>({...f,parent:parent.key})):cardConfig.map(f=>({name:f.name,value:'',empty:true,parentMissing:true}));}catch(e){if(signal.aborted)throw e;entry.cardFields=cardConfig.map(f=>({name:f.name,error:e.message}));}}
         if(parentEnabled(p)&&B.parentList(p.parentTypes).some(t=>t.toLowerCase()===String(issue.fields.issuetype?.name).toLowerCase())){try{if(parentError)throw Error(parentError);entry.parents=await B.parentInfo(issue,p,parentConfig,fetchParent);}catch(e){if(signal.aborted)throw e;entry.parents='Родительские поля: '+e.message;}}
         if(p.daily&&!Object.hasOwn(issue.fields,'assignee'))entry.error='Jira не вернула assignee: исполнитель неизвестен.';
         if(p.daily&&p.flagged){try{const blockers=[];for(const linkedKey of B.blockerKeys(issue,p))blockers.push(await linkedStatus(linkedKey));const tag=B.blockage(blockers,p);if(tag)entry.daily.push(tag);}catch(e){if(signal.aborted)throw e;entry.daily.push({type:'flagged',tone:'unknown',text:'БЛОКИРОВКА: ?',title:e.message});}}
