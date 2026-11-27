@@ -86,7 +86,7 @@ globalThis.JbpSprint = (() => {
     if(changes.some(c=>!Number.isFinite(c.time)))return null;
     let status=String(changes[0]?.from??issue.fields.status?.id??''),name=changes[0]?.fromString||issue.fields.status?.name||status,since=created,start=work.has(status)?created:null,finish=null,reopened=0;
     const durations=new Map();const add=(id,n,hours)=>{const old=durations.get(id)||{statusId:id,status:n,hours:0};old.hours+=Math.max(0,hours);durations.set(id,old);};
-    for(const change of changes){if(change.time>cutoff)break;add(status,name,(change.time-since)/3600000);if(done.has(status)&&!done.has(String(change.to))&&change.time>=Date.parse(sprint.startDate))reopened++;status=String(change.to);name=change.toString||status;since=change.time;if(start==null&&work.has(status))start=since;if(done.has(status)&&start!=null)finish=since;}
+    for(const change of changes){if(change.time>cutoff)break;add(status,name,(change.time-since)/3600000);if(done.has(status)&&!done.has(String(change.to))&&change.time>=Date.parse(sprint.startDate))reopened++;const wasDone=done.has(status);status=String(change.to);name=change.toString||status;since=change.time;if(start==null&&work.has(status))start=since;if(done.has(status)&&!wasDone&&start!=null)finish=since;}
     add(status,name,(cutoff-since)/3600000);
     return{calendar:'24x7',statusAtCutoff:name,statusIdAtCutoff:status,ageHours:Math.max(0,(cutoff-since)/3600000),cycleHours:start!=null&&finish!=null&&done.has(status)?(finish-start)/3600000:null,reopened,statusDurations:[...durations.values()]};
   }

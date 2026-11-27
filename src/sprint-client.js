@@ -49,6 +49,7 @@
       const estimate = S.estimation(config,fields,profile), base = S.reportRows(report);
       const resolved=JbpBoard.resolveStatusRules(statuses,profile.statusRules);
       profile=S.profile({...profile,...resolved});
+      const sprintField=fields.find(f=>f.schema?.custom==='com.pyxis.greenhopper.jira:gh-sprint'||f.name==='Sprint')?.id;
       const epicField=fields.find(f=>f.schema?.custom==='com.pyxis.greenhopper.jira:gh-epic-link')?.id;
       if (base.length > 3000) throw new Error('Более 3000 задач. Выгрузка отменена, чтобы не создавать неполный файл.');
       const issues = [], details = {}, warnings = [...resolved.warnings], queue = [...base];
@@ -56,8 +57,8 @@
         while (queue.length) {
           const row = queue.shift();
           try {
-            const issue = await this.get(`api/2/issue/${row.key}?fields=summary,assignee,status,issuetype,priority,customfield_10200,created,description,${estimate.field||'created'}${epicField?','+epicField:''}&expand=changelog`,signal);
-            const enriched = S.enrich(row,issue,estimate,sprint); enriched.flow=S.flow(issue,sprint,profile); issues.push(enriched); details[row.key] = { description: issue.fields.description ?? null, changelog: issue.changelog ?? null };
+            const issue = await this.get(`api/2/issue/${row.key}?fields=summary,assignee,status,issuetype,priority,customfield_10200,created,description,${estimate.field||'created'}${epicField?','+epicField:''}${sprintField?','+sprintField:''}&expand=changelog`,signal);
+            const enriched = S.enrich(row,issue,estimate,sprint); enriched.flow=S.flow(issue,sprint,profile); issues.push(enriched); details[row.key] = { description: issue.fields.description ?? null, changelog: issue.changelog ?? null, historyIssue:{fields:{created:issue.fields.created,status:issue.fields.status,sprint:sprintField?issue.fields[sprintField]:undefined},changelog:issue.changelog},sprintField };
             enriched.priority=issue.fields.priority?.name??null;enriched.team=issue.fields.customfield_10200??null;enriched.epic=epicField?(issue.fields[epicField]??null):null;
             if (!enriched.historyComplete) warnings.push(`${row.key}: история неполная, исторические оценки неизвестны.`);
           } catch(error) { if (signal?.aborted) throw error; issues.push({ ...row, assigneeId: '__unknown', assignee: 'Не удалось получить', startEstimate:null, endEstimate:null, currentEstimate:null, subtask:false, error:error.message }); warnings.push(`${row.key}: ${error.message}`); }

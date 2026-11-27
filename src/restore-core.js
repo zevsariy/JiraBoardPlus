@@ -37,6 +37,7 @@ globalThis.JbpRestore=(()=>{
     if(JbpConnection.normalize(decodeURIComponent(m[2]))!==base){ignored.push(key);continue;}
     const [,kind,,id,suffix='']=m;if(!/^[\w-]+$/.test(id))throw Error('Некорректный идентификатор настроек.');
     if(kind==='Sprint'&&!suffix&&/^\d+$/.test(id)&&v?.profile){add(key,key,'Паспорт метрик доски '+id,pick(JbpSprint.profile(v.profile),Object.keys(v.profile)),'profile');continue;}
+    if(kind==='Dashboard'&&suffix==='analytics'&&/^\d+$/.test(id)){add(key,key,'Процесс и метрики доски '+id,JbpAnalytics.profile(v));continue;}
     if(kind==='Dashboard'&&!suffix&&/^\d+$/.test(id)){add(key,key,'Отображение метрик доски '+id,dashboard(v));continue;}
     if(kind==='Roadmap'&&['','scope','components','versionField','view','treeWidth'].includes(suffix)||kind==='Roadmap'&&/^cutoff:\d+$/.test(suffix)){
      if(suffix==='view'){if(!object(v))throw Error('Некорректный вид роадмэпа.');const c=pick(v,['group','zoom','edge-mode','links','sprints','dues']);for(const [k,x]of Object.entries(c))if(['links','sprints','dues'].includes(k)?typeof x!=='boolean':!({group:['tree','team'],zoom:['week','month'],'edge-mode':['selected','conflicts','all']}[k]||[]).includes(x))throw Error('Некорректный вид роадмэпа.');add(key,key,'Роадмэп '+id+' · вид',c);continue;}

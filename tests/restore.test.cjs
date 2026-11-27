@@ -6,7 +6,7 @@ function fixture(){
  const lockQueues=new Map(),locks={request(name,fn){const p=(lockQueues.get(name)||Promise.resolve()).catch(()=>{}).then(fn);lockQueues.set(name,p);return p;}};
  const set=async values=>{if(fail)throw Error('quota');Object.assign(state,structuredClone(values));};
  const c=vm.createContext({URL,TextEncoder,crypto:require('node:crypto').webcrypto,navigator:{locks},serial:fn=>locks.request('serial',fn),JbpStorage:{transaction:fn=>locks.request('jbp-storage-commit',()=>fn({set}))},scheduleNext:async()=>{},syncContent:async()=>{},broadcastPrefs:async()=>{},chrome:{runtime:{id:'fixture',getURL:p=>'chrome-extension://fixture/'+p},permissions:{contains:async()=>permission},storage:{local:{get:async keys=>keys===null?structuredClone(state):Object.fromEntries((Array.isArray(keys)?keys:[keys]).filter(k=>k in state).map(k=>[k,structuredClone(state[k])]))},session:{get:async key=>({[key]:structuredClone(session[key])}),set:async values=>Object.assign(session,structuredClone(values)),remove:async key=>delete session[key]}}}});
- for(const n of ['connection','network-core','reports-core','board-core','sprint-core','tools-core','ai-core','control-core','roadmap-core','restore-core','restore-worker'])vm.runInContext(fs.readFileSync(path.join(__dirname,'../src/'+n+'.js'),'utf8'),c);
+ for(const n of ['connection','network-core','reports-core','board-core','sprint-core','tools-core','ai-core','control-core','roadmap-core','analytics-core','restore-core','restore-worker'])vm.runInContext(fs.readFileSync(path.join(__dirname,'../src/'+n+'.js'),'utf8'),c);
  return {state,c,fail:()=>fail=true,deny:()=>permission=false,call:(op,extra={},tab=1)=>c.restoreMessage({op,...extra},{id:'fixture',url:'chrome-extension://fixture/restore.html',tab:{id:tab}}),archive:data=>({schema:'jira-board-plus/settings-archive/v1',baseUrl:root,data})};
 }
 test('restore applies only selected settings, preserving secrets, reports, snapshots and unknown keys',async()=>{
@@ -57,4 +57,13 @@ test('empty roadmap scope drafts do not prevent backup; first connection restore
  const f=fixture(),key='jbpRoadmap:'+encodeURIComponent(root)+':DEMO:scope';
  for(const scope of [{mode:'components',values:[]},{mode:'labels',values:['']},{mode:'filter'},{mode:'jql',jql:''}]){f.state[key]=scope;const exported=await f.call('export');assert.equal(exported.data[key].mode,scope.mode);}
  const g=fixture();for(const k of Object.keys(g.state))delete g.state[k];const p=await g.call('inspect',{archive:g.archive({jbpReportsV1:{baseUrl:root,project:'DEMO'},jbpBoardPrefs:{daily:true}})});await g.call('apply',{token:p.token,selected:['connection','jbpBoardPrefs']});assert.equal(g.state.jbpReportsV1.baseUrl,root);assert.deepEqual(g.state.jbpReportsV1.queries,[]);assert.equal(g.state.jbpRestoreBackup.baseUrl,'');
+});
+
+
+test('analytics profiles survive settings backup and restore with calendar, rules and views',async()=>{
+ const f=fixture(),key='jbpDashboard:'+encodeURIComponent(root)+':7:analytics';
+ const profile=f.c.JbpAnalytics.template('kanban',{workStatuses:'2',doneStatuses:'3'});profile.calendar={mode:'business',zone:'Europe/Moscow',days:[1,2,3,4,5],start:'09:00',end:'18:00',holidays:['2026-11-30']};profile.views=[{name:'Daily',hidden:['lead'],order:['aging','cycle']}];
+ f.state[key]=profile;const archive=f.c.JbpRestore.exportSettings(f.state);assert.equal(archive.data[key].calendar.zone,'Europe/Moscow');assert.equal(archive.data[key].views[0].name,'Daily');
+ const parsed=f.c.JbpRestore.parse(archive);assert.ok(parsed.rows.some(r=>r.key===key));
+ assert.throws(()=>f.c.JbpRestore.parse({...archive,data:{[key]:{...profile,metrics:[{...profile.metrics[0],end:[]}]}}}));
 });

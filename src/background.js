@@ -2,7 +2,7 @@ importScripts('runtime-messages.js');
 importScripts('network-core.js', 'connection.js', 'reports-core.js', 'board-core.js', 'sprint-core.js', 'tools-core.js', 'tools-store.js', 'notes-core.js', 'ai-core.js');
 importScripts('network-worker.js', 'network-client.js');
 importScripts('diagnostics-core.js', 'diagnostics-probe.js', 'diagnostics-worker.js');
-importScripts('control-core.js', 'roadmap-core.js', 'restore-core.js', 'restore-worker.js');
+importScripts('control-core.js', 'roadmap-core.js', 'analytics-core.js', 'restore-core.js', 'restore-worker.js');
 const R = globalThis.JbpReports;
 const STORE = 'jbpReportsV1';
 const ALARM = 'jbp-scheduler';
@@ -366,7 +366,7 @@ async function embeddedMessage(message,sender){
   if(message.op!=='set'||!message.value||typeof message.value!=='object'||JSON.stringify(message.value).length>20000)throw Error('Некорректные настройки.');await chrome.storage.local.set({[message.key]:message.value});return true;
  }
  const section=message.section||'metrics';if(!['metrics','report','help','roadmap','tools','settings'].includes(section))throw Error('Раздел недоступен.');
- let modules=section==='help'?[]:section==='report'?[['JbpReports','src/reports-core.js'],['JbpReportsMount','src/report.js']]:[['JbpUI','src/ui-theme.js'],['JbpBoard','src/board-core.js'],['JbpSprint','src/sprint-core.js'],['JbpSprint.Client','src/sprint-client.js'],['marked','src/vendor/marked.umd.js'],['JbpMarkdown','src/ai-markdown.js'],['JbpAIUI','src/ai-ui.js'],['JbpSprint.mountCapacity','src/sprint-capacity.js'],['JbpSprint.mount','src/sprint-ui.js'],['JbpSearchPicker','src/search-picker.js'],['JbpDashboard','src/dashboard-core.js'],['JbpDashboard.load','src/dashboard-client.js'],['JbpCharts','src/dashboard-charts.js'],['JbpDashboard.mount','src/dashboard-ui.js'],['JbpMetricsMount','src/metrics.js']];
+ let modules=section==='help'?[]:section==='report'?[['JbpReports','src/reports-core.js'],['JbpReportsMount','src/report.js']]:[['JbpUI','src/ui-theme.js'],['JbpBoard','src/board-core.js'],['JbpSprint','src/sprint-core.js'],['JbpSprint.Client','src/sprint-client.js'],['marked','src/vendor/marked.umd.js'],['JbpMarkdown','src/ai-markdown.js'],['JbpAIUI','src/ai-ui.js'],['JbpSprint.mountCapacity','src/sprint-capacity.js'],['JbpSprint.mount','src/sprint-ui.js'],['JbpSearchPicker','src/search-picker.js'],['JbpDashboard','src/dashboard-core.js'],['JbpDashboard.load','src/dashboard-client.js'],['JbpCharts','src/dashboard-charts.js'],['JbpAnalytics','src/analytics-core.js'],['JbpAnalyticsCharts','src/analytics-charts.js'],['JbpAnalyticsUI','src/analytics-ui.js'],['JbpDashboard.mount','src/dashboard-ui.js'],['JbpMetricsMount','src/metrics.js']];
  const common=[['JbpNetwork','src/network-client.js'],['JbpUI','src/ui-theme.js'],['JbpBoard','src/board-core.js'],['JbpSprint','src/sprint-core.js'],['JbpSprint.Client','src/sprint-client.js'],['JbpSearchPicker','src/search-picker.js']];
  if(section==='roadmap')modules=[...common,['JbpRoadmap','src/roadmap-core.js'],['JbpRoadmap.Client','src/roadmap-client.js'],['JbpRoadmap.draw','src/roadmap-view.js'],['marked','src/vendor/marked.umd.js'],['JbpMarkdown','src/ai-markdown.js'],['JbpAIUI','src/ai-ui.js'],['cytoscape','src/vendor/cytoscape.min.js'],['JbpRoadmap.createGraph','src/roadmap-graph.js'],['JbpRoadmapMount','src/roadmap.js']];
  if(section==='tools')modules=[...common,['JbpReports','src/reports-core.js'],['JbpTools','src/tools-core.js'],['JbpTools.Client','src/tools-client.js'],['JbpToolsSelection','src/tools-selection.js'],['JbpToolsMount','src/tools.js']];
