@@ -1,0 +1,27 @@
+name: Release gate tests
+on:
+  push:
+    branches: ['**']
+    paths:
+      - '.github/workflows/**'
+      - 'scripts/ci/**'
+      - 'tests/release-gate.test.cjs'
+      - 'package*.json'
+  pull_request:
+    paths:
+      - '.github/workflows/**'
+      - 'scripts/ci/**'
+      - 'tests/release-gate.test.cjs'
+      - 'package*.json'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  passing-browser:
+    uses: ./.github/workflows/release-gate-case.yml
+    with:
+      expect_failure: false
+  failing-browser:
+    uses: ./.github/workflows/release-gate-case.yml
+    with:
+      expect_failure: true

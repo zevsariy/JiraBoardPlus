@@ -1,0 +1,57 @@
+name: Release publication
+on:
+  workflow_call:
+    inputs:
+      checks_result:
+        type: string
+        required: true
+      dry_run:
+        type: boolean
+        default: true
+    outputs:
+      release_result:
+        value: ${{ jobs.release.result }}
+      marker:
+        value: ${{ jobs.release.outputs.marker }}
+jobs:
+  release:
+    if: ${{ inputs.checks_result == 'success' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    outputs:
+      marker: ${{ steps.canary.outputs.marker }}
+    steps:
+      - uses: actions/checkout@v4
+        if: ${{ !inputs.dry_run }}
+      - uses: actions/setup-node@v4
+        if: ${{ !inputs.dry_run }}
+        with:
+          node-version: '22'
+      - uses: actions/setup-python@v5
+        if: ${{ !inputs.dry_run }}
+        with:
+          python-version: '3.12'
+      - name: Check tag and version
+        if: ${{ !inputs.dry_run }}
+        run: node -e "if ('v'+require('./manifest.json').version !== process.env.GITHUB_REF_NAME) process.exit(1)"
+      - run: python scripts/package.py
+        if: ${{ !inputs.dry_run }}
+      - name: Extract release notes
+        if: ${{ !inputs.dry_run }}
+        run: |
+          python - <<'PY'
+          import json, pathlib
+          version = json.loads(pathlib.Path('manifest.json').read_text())['version']
+          text = pathlib.Path('CHANGELOG.md').read_text()
+          notes = text.split('## ' + version, 1)[1].split('\n## ', 1)[0]
+          pathlib.Path('dist/release-notes.md').write_text('## ' + version + notes)
+          PY
+      - name: Publish release
+        if: ${{ !inputs.dry_run }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release create "$GITHUB_REF_NAME" dist/*.zip --verify-tag --title "Jira Board Plus $GITHUB_REF_NAME" --notes-file dist/release-notes.md
+      - name: Dry-run publication marker
+        id: canary
+        if: ${{ inputs.dry_run }}
+        run: echo "marker=RELEASE_GATE_CANARY_EXECUTED" >> "$GITHUB_OUTPUT"

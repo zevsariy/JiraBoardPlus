@@ -1,0 +1,65 @@
+name: Release gate scenario
+on:
+  workflow_call:
+    inputs:
+      expect_failure:
+        type: boolean
+        required: true
+permissions:
+  contents: read
+jobs:
+  browser:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    outputs:
+      result: ${{ steps.probe.outcome }}
+      classification: ${{ steps.probe.outputs.classification }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci
+      - run: node --test tests/release-gate.test.cjs
+      - run: npx playwright install --with-deps chromium
+      - name: Run browser assertion (failure is expected in the negative scenario)
+        id: probe
+        continue-on-error: true
+        env:
+          EXPECT_FAILURE: ${{ inputs.expect_failure }}
+        run: node scripts/ci/release-gate-browser.cjs
+  publication:
+    needs: browser
+    uses: ./.github/workflows/release-publish.yml
+    with:
+      checks_result: ${{ needs.browser.outputs.result }}
+      dry_run: true
+  verify:
+    if: always()
+    needs: [browser, publication]
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Verify release gate outcome
+        env:
+          EXPECT_FAILURE: ${{ inputs.expect_failure }}
+          BROWSER_JOB_RESULT: ${{ needs.browser.result }}
+          BROWSER_RESULT: ${{ needs.browser.outputs.result }}
+          CLASSIFICATION: ${{ needs.browser.outputs.classification }}
+          PUBLICATION_RESULT: ${{ needs.publication.result }}
+          RELEASE_RESULT: ${{ needs.publication.outputs.release_result }}
+          RELEASE_MARKER: ${{ needs.publication.outputs.marker }}
+        run: node scripts/ci/verify-release-gate.cjs
+      - name: Save release gate evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-gate-failure-${{ inputs.expect_failure }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: test-output/release-gate.json
+          if-no-files-found: error
+          retention-days: 14
