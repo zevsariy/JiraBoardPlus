@@ -3,7 +3,7 @@
   // Do not start observers, timers or messaging on Plans and unrelated Jira pages.
   if (!location.pathname.endsWith('/secure/RapidBoard.jspa')) return;
   const responseTimes=new WeakMap();
-  const B=JbpBoard,TTL=300000,keyPattern=/^[A-Z][A-Z0-9_]*-\d+$/;
+  const B=JbpBoard,keyPattern=/^[A-Z][A-Z0-9_]*-\d+$/;
   const context=document.querySelector('meta[name="ajs-context-path"]')?.content||'';
   if(context&&!/^\/[\w/-]*$/.test(context))return;
   let prefs={...B.defaults},current='',controller,running=false,rerun=false,forceNext=false,timer,rows=new Map(),additions=new Map(),scopeAt=0,scopeError='',errors=[],bar,fetchedAt=0;
@@ -122,7 +122,7 @@
       card.append(host);
     }
     if(!prefs.summary){bar?.remove();bar=null;return;}
-    if(!bar?.isConnected){bar=document.createElement('div');bar.dataset.jbpBoard='';const root=bar.attachShadow({mode:'open'});root.innerHTML='<style>:host{font:12px "Segoe UI",sans-serif;color:#344269}.bar{display:flex;align-items:center;gap:10px;padding:7px 10px;background:#f0f2ff;border:1px solid #dfe3f4;border-radius:4px}button{font:inherit;padding:3px 8px;border:1px solid #bec5df;background:white;color:#303bea;cursor:pointer}p{margin:4px 0;color:#a32720;white-space:pre-wrap}</style><div class="bar"><span id="text" role="status"></span><button>Обновить</button></div><p id="error" role="status"></p>';globalThis.JbpUI?.mount(root,true);root.querySelector('button').title='Данные обновляются автоматически раз в 5 минут, только в видимой вкладке. Обновить сейчас.';root.querySelector('button').onclick=()=>{forceNext=true;refresh();};pool.before(bar);}
+    if(!bar?.isConnected){bar=document.createElement('div');bar.dataset.jbpBoard='';const root=bar.attachShadow({mode:'open'});root.innerHTML='<style>:host{font:12px "Segoe UI",sans-serif;color:#344269}.bar{display:flex;align-items:center;gap:10px;padding:7px 10px;background:#f0f2ff;border:1px solid #dfe3f4;border-radius:4px}button{font:inherit;padding:3px 8px;border:1px solid #bec5df;background:white;color:#303bea;cursor:pointer}p{margin:4px 0;color:#a32720;white-space:pre-wrap}</style><div class="bar"><span id="text" role="status"></span><button>Обновить</button></div><p id="error" role="status"></p>';globalThis.JbpUI?.mount(root,true);root.querySelector('button').title='Обновить данные дополнений карточек сейчас. Расписание задаётся в настройках обновления доски.';root.querySelector('button').onclick=()=>{forceNext=true;refresh();};pool.before(bar);}
     if(bar.previousElementSibling!==pool&&bar.nextElementSibling!==pool)pool.before(bar);
     const text=`Board Plus · карточек: ${visible.length}${prefs.daily?` · требуют внимания: ${attention}`:''}${prefs.scope?` · после старта: ${added}`:''} · ${running?'обновление…':fetchedAt?`обновлено ${new Date(fetchedAt).toLocaleTimeString()}`:'ожидание'}`;
     if(bar.shadowRoot.getElementById('text').textContent!==text)bar.shadowRoot.getElementById('text').textContent=text;
@@ -136,11 +136,12 @@
     if(current!==id){controller?.abort();clean();rows.clear();additions.clear();scopeAt=0;scopeError='';fetchedAt=0;errors=[];current=id;}
     const pool=cardPool();
     // Jira can temporarily detach/hide the pool while opening Details. Keep the cache.
-    if(!pool||!pool.getClientRects().length||document.hidden)return;
+    if(!pool||!pool.getClientRects().length||document.hidden||(prefs.nativeRefreshPauseHidden&&!document.hasFocus()))return;
     draw(pool);if(Date.now()<retryAt)return;if(running){rerun=true;return;}
+    const ttl=prefs.nativeRefreshMode==='auto'?prefs.nativeRefreshSeconds*1000:300000,auto=prefs.nativeRefreshMode!=='manual';
     const signature=fetchKey(prefs),keys=[...new Set(cards(pool).map(c=>c.dataset.issueKey))].slice(0,300);
-    const queue=(prefs.daily||prefs.age||prefs.build||parentEnabled())?keys.filter(k=>forceNext||!rows.has(k)||rows.get(k).config!==signature||Date.now()-rows.get(k).at>=TTL):[];
-    const scopeDue=prefs.scope&&(forceNext||!scopeAt||Date.now()-scopeAt>=TTL);
+    const queue=(prefs.daily||prefs.age||prefs.build||parentEnabled())?keys.filter(k=>forceNext||!rows.has(k)||rows.get(k).config!==signature||(auto&&Date.now()-rows.get(k).at>=ttl)):[];
+    const scopeDue=prefs.scope&&(forceNext||!scopeAt||(auto&&Date.now()-scopeAt>=ttl));
     if(!queue.length&&!scopeDue)return;
     forceNext=false;running=true;controller=new AbortController();const signal=controller.signal,p=prefs,nextRows=new Map(rows);let nextScope=additions,nextScopeAt=scopeAt,nextScopeError=scopeError;const nextErrors=[];
     if(cards(pool).length>300)nextErrors.push('Обрабатываются первые 300 карточек. Уточните фильтр доски.');draw(pool);
@@ -175,10 +176,11 @@
       if(Date.now()<retryAt)nextErrors.push('Запросы приостановлены до '+new Date(retryAt).toLocaleTimeString()+'. Показаны последние доступные данные.');
       if(!signal.aborted&&current===id&&fetchKey(prefs)===signature){rows=nextRows;additions=nextScope;scopeAt=nextScopeAt;scopeError=nextScopeError;errors=nextErrors;fetchedAt=Date.now();}
     }catch(e){if(!signal.aborted)errors=[e.message];}
-    finally{if(signal.aborted&&document.hidden&&current===id&&fetchKey(prefs)===signature){rows=nextRows;additions=nextScope;scopeAt=nextScopeAt;scopeError=nextScopeError;}running=false;const live=cardPool();if(current===id&&route()===id&&live&&!document.hidden)draw(live);if(rerun||forceNext){rerun=false;setTimeout(refresh,0);}}
+    finally{if(signal.aborted&&(document.hidden||(prefs.nativeRefreshPauseHidden&&!document.hasFocus()))&&current===id&&fetchKey(prefs)===signature){rows=nextRows;additions=nextScope;scopeAt=nextScopeAt;scopeError=nextScopeError;}running=false;const live=cardPool();if(current===id&&route()===id&&live&&!document.hidden)draw(live);if(rerun||forceNext){rerun=false;setTimeout(refresh,0);}}
   }
   function apply(value){try{const next=B.validate(value);if(fetchKey(prefs)!==fetchKey(next))controller?.abort();prefs=next;refresh();}catch(e){console.warn('Board Plus:',e.message);}}
   chrome.runtime.onMessage.addListener(m=>{if(m.type==='boardPrefsChanged')apply(m.prefs);});chrome.runtime.sendMessage({type:'boardPrefsGet'}).then(r=>{if(r?.ok)apply(r.data);}).catch(()=>{});
   new MutationObserver(records=>{if(!records.some(r=>!r.target.closest?.('[data-jbp-card],[data-jbp-board],[data-jbp-tooltip]')&&[...r.addedNodes,...r.removedNodes].some(n=>n.nodeType===1&&!n.matches?.('[data-jbp-card],[data-jbp-board],[data-jbp-tooltip]'))))return;clearTimeout(timer);timer=setTimeout(refresh,80);}).observe(document.body,{childList:true,subtree:true});
+  addEventListener('focus',refresh);addEventListener('blur',()=>{if(prefs.nativeRefreshPauseHidden){controller?.abort();rerun=false;}});
   setInterval(refresh,15000);addEventListener('popstate',refresh);document.addEventListener('visibilitychange',()=>{if(document.hidden){controller?.abort();rerun=false;}else refresh();});
 })();

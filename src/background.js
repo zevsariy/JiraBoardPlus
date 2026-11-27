@@ -13,7 +13,7 @@ async function scheduleNext(state) {
 }
 let chain = Promise.resolve();
 const serial = fn => { const next = chain.then(fn); chain = next.catch(() => {}); return next; };
-const CONTENT_FILES = ["src/ui-theme.js", "src/jira-theme.js", "src/api.js", "src/team-panel.js", "src/content.js", "src/board-core.js", "src/active-board.js", "src/sprint-core.js", "src/sprint-client.js", "src/vendor/marked.umd.js", "src/ai-markdown.js", "src/ai-ui.js", "src/ai-board.js", "src/sprint-ui.js", "src/sprint-report.js", "src/private-notes.js"];
+const CONTENT_FILES = ["src/ui-theme.js", "src/jira-theme.js", "src/api.js", "src/team-panel.js", "src/content.js", "src/board-core.js", "src/active-board.js", "src/native-refresh.js", "src/sprint-core.js", "src/sprint-client.js", "src/vendor/marked.umd.js", "src/ai-markdown.js", "src/ai-ui.js", "src/ai-board.js", "src/sprint-ui.js", "src/sprint-report.js", "src/private-notes.js"];
 function isJiraPage(url,base){return !!base && typeof url==='string' && url.startsWith(base+'/');}
 async function broadcastPrefs(prefs,base){if(base===undefined)base=(await read()).baseUrl;if(!base)return;const tabs=await chrome.tabs.query({url:new URL(base).origin+'/*'});await Promise.allSettled(tabs.filter(t=>isJiraPage(t.url,base)).map(t=>chrome.tabs.sendMessage(t.id,{type:'boardPrefsChanged',prefs})));}
 async function syncContent(){
@@ -21,10 +21,31 @@ async function syncContent(){
   await syncEmbedded();
   const base=JbpConnection.from(await read()).baseUrl,registered=await chrome.scripting.getRegisteredContentScripts({ids:['jbp-jira']});
   const permitted=base&&await chrome.permissions.contains({origins:[new URL(base).origin+'/*']});
+  await syncNativeRefresh(base,permitted);
   const matches=permitted?[base+'/secure/RapidBoard.jspa*',base+'/browse/*']:[];
   if(registered.length && JSON.stringify(registered[0].matches)===JSON.stringify(matches) && JSON.stringify(registered[0].js)===JSON.stringify(CONTENT_FILES))return;
   if(registered.length)await chrome.scripting.unregisterContentScripts({ids:['jbp-jira']});
   if(permitted)await chrome.scripting.registerContentScripts([{id:'jbp-jira',matches,js:CONTENT_FILES,runAt:'document_idle',persistAcrossSessions:true}]);
+}
+async function syncNativeRefresh(base,permitted){
+  const id='jbp-native-refresh',matches=permitted?[base+'/secure/RapidBoard.jspa*']:[];
+  const old=await chrome.scripting.getRegisteredContentScripts({ids:[id]});
+  if(old.length&&JSON.stringify(old[0].matches)===JSON.stringify(matches)&&old[0].world==='MAIN')return;
+  if(old.length)await chrome.scripting.unregisterContentScripts({ids:[id]});
+  if(permitted)await chrome.scripting.registerContentScripts([{id,matches,js:['src/native-refresh-main.js'],world:'MAIN',runAt:'document_start',persistAcrossSessions:true}]);
+}
+async function nativeRefreshMessage(message,sender){
+  const base=JbpConnection.from(await read()).baseUrl;
+  if(sender.id!==chrome.runtime.id||!sender.tab?.id||sender.frameId!==0||!isJiraPage(sender.url,base)||new URL(sender.url).pathname!==new URL(base).pathname.replace(/\/$/,'')+'/secure/RapidBoard.jspa')throw Error('Недопустимая страница доски Jira.');
+  const p=JbpBoard.validate((await chrome.storage.local.get('jbpBoardPrefs')).jbpBoardPrefs||{});
+  await chrome.scripting.executeScript({target:{tabId:sender.tab.id,frameIds:[0]},world:'MAIN',files:['src/native-refresh-main.js']});
+  const [result]=await chrome.scripting.executeScript({target:{tabId:sender.tab.id,frameIds:[0]},world:'MAIN',func:(config,manual)=>{
+    if(!globalThis.JbpNativeRefresh)return {error:'Модуль обновления не загружен.'};
+    const state=globalThis.JbpNativeRefresh.configure(config);
+    if(manual){try{return globalThis.JbpNativeRefresh.refreshNow();}catch(e){return {...state,error:e.message};}}
+    return state;
+  },args:[{mode:p.nativeRefreshMode,seconds:p.nativeRefreshSeconds,pauseHidden:p.nativeRefreshPauseHidden},message.type==='nativeRefreshNow']});
+  return result?.result||{error:'Не удалось определить состояние обновления Jira.'};
 }
 const empty = () => ({ queries: [], results: {}, jobs: {}, context: '', noticeError: '', fieldNames: {} });
 async function read() { return (await chrome.storage.local.get(STORE))[STORE] || empty(); }
@@ -171,6 +192,7 @@ async function command(message) {
   return state;
 }
 chrome.runtime.onMessage.addListener((message, sender, reply) => {
+  if(['nativeRefreshConfigure','nativeRefreshNow'].includes(message.type)){nativeRefreshMessage(message,sender).then(data=>reply({ok:true,data}),error=>reply({ok:false,error:error.message}));return true;}
   if(['embeddedOpen','embeddedConnection','embeddedStore','embeddedPage','embeddedReport','embeddedTools','embeddedPrefs','embeddedRoadmapStore'].includes(message.type)){embeddedMessage(message,sender).then(data=>reply({ok:true,data}),error=>reply({ok:false,error:error.message}));return true;}
   if(['aiGet','aiSave','aiAnalyze','aiCancel','aiBoardData'].includes(message.type)){aiMessage(message,sender).then(data=>reply({ok:true,data}),e=>reply({ok:false,error:e.message}));return true;}
   if(sender.id===chrome.runtime.id && message.type==='privateNotes'){

@@ -53,16 +53,18 @@ globalThis.JbpSettingsMount=function(document,chrome=globalThis.chrome,window=gl
   $('report').onclick = () => chrome.tabs.create({ url: chrome.runtime.getURL('report.html') });
   $('tools').onclick = () => chrome.tabs.create({ url: chrome.runtime.getURL('tools.html') });
   $('metrics').onclick = () => chrome.tabs.create({ url: chrome.runtime.getURL('metrics.html') });
+  const refreshControls=()=>{$('nativeRefreshSeconds').disabled=$('nativeRefreshMode').value!=='auto';};
+  $('nativeRefreshMode').onchange=refreshControls;
   $('source').onchange = () => { if ($('source').value === 'timepiece') $('integration').open = true; };
   $('settings').onsubmit = async e => {
     e.preventDefault(); const submit = e.submitter; submit.disabled = true;
     try {
       $('teamField').value=resolveTeam();
       const prefs = B.validate(Object.fromEntries(Object.keys(B.defaults).map(key => [key, typeof B.defaults[key] === 'boolean' ? $(key).checked : $(key).value])));
-      await send('boardPrefsSet', prefs); status('Сохранено. Открытые доски обновляются автоматически.');
+      await send('boardPrefsSet', prefs); status('Сохранено. Настройки применены к открытым вкладкам.');
     } catch (error) { status(error.message, true); } finally { submit.disabled = false; }
   };
-  send('boardPrefsGet').then(prefs => { for (const key of Object.keys(B.defaults)) { if (typeof B.defaults[key] === 'boolean') $(key).checked = prefs[key]; else $(key).value = prefs[key]; } $('team-field-name').value=prefs.teamField;teamReady=true;if(connection?.baseUrl)loadTeamFields();$('save-main').disabled=false; }).catch(e => status(e.message, true));
+  send('boardPrefsGet').then(prefs => { for (const key of Object.keys(B.defaults)) { if (typeof B.defaults[key] === 'boolean') $(key).checked = prefs[key]; else $(key).value = prefs[key]; } refreshControls();$('team-field-name').value=prefs.teamField;teamReady=true;if(connection?.baseUrl)loadTeamFields();$('save-main').disabled=false; }).catch(e => status(e.message, true));
 return ()=>{teamRevision++;};
 };
 if(!globalThis.jbpShellInstalled)JbpSettingsMount(document);

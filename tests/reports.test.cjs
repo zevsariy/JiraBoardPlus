@@ -126,10 +126,10 @@ test('configured Jira alone controls dynamic scripts; fresh install has no serve
  const h=harness();await h.run('write(empty())');await h.run(`command({type:'save',query:${JSON.stringify(config)}})`);await h.run("command({type:'run'})");await h.run('tick()');assert.equal(h.calls.length,0);assert.match(h.get().queries[0].lastError,/адрес Jira/);
  await h.run(`globalThis.registered=[];globalThis.unregistered=0;chrome.permissions={contains:async()=>true};chrome.scripting={getRegisteredContentScripts:async({ids})=>registered.filter(r=>ids.includes(r.id)),registerContentScripts:async rows=>{registered.push(...rows);},unregisterContentScripts:async({ids})=>{registered=registered.filter(r=>!ids.includes(r.id));unregistered++;}};`);
  await h.run('syncContent()');assert.equal(await h.run('registered.length'),0);
- await h.run("write({...empty(),baseUrl:'https://jira-one.example/jira'})");await h.run('syncContent()');assert.equal(await h.run('registered.find(r=>r.id==="jbp-jira").matches[0]'),'https://jira-one.example/jira/secure/RapidBoard.jspa*');assert.equal(await h.run('registered.find(r=>r.id==="jbp-jira").matches[1]'),'https://jira-one.example/jira/browse/*');
+ await h.run("write({...empty(),baseUrl:'https://jira-one.example/jira'})");await h.run('syncContent()');assert.equal(await h.run('registered.find(r=>r.id==="jbp-jira").matches[0]'),'https://jira-one.example/jira/secure/RapidBoard.jspa*');assert.equal(await h.run('registered.find(r=>r.id==="jbp-jira").matches[1]'),'https://jira-one.example/jira/browse/*');assert.equal(await h.run('registered.find(r=>r.id==="jbp-native-refresh").world'),'MAIN');assert.equal(await h.run('registered.find(r=>r.id==="jbp-native-refresh").runAt'),'document_start');
  assert.equal(await h.run("isJiraPage('https://jira-one.example/jira/secure/RapidBoard.jspa','https://jira-one.example/jira')"),true);
  for(const url of ['https://jira-one.example/other/','https://jira-one.example.evil/jira/','https://jira-one.example/jira-other/'])assert.equal(await h.run(`isJiraPage(${JSON.stringify(url)},'https://jira-one.example/jira')`),false);
- await h.run("write({...empty(),baseUrl:'https://jira-two.example'})");await h.run('syncContent()');assert.equal(await h.run('registered.find(r=>r.id==="jbp-jira").matches[0]'),'https://jira-two.example/secure/RapidBoard.jspa*');assert.equal(await h.run('unregistered'),2);
+ await h.run("write({...empty(),baseUrl:'https://jira-two.example'})");await h.run('syncContent()');assert.equal(await h.run('registered.find(r=>r.id==="jbp-jira").matches[0]'),'https://jira-two.example/secure/RapidBoard.jspa*');assert.equal(await h.run('unregistered'),3);
  await h.run('chrome.permissions.contains=async()=>false');await h.run('syncContent()');assert.equal(await h.run('registered.length'),0);
 });
 
@@ -150,3 +150,10 @@ test('new reports use only the configured Team field without installation-specif
  assert.equal(await h.message({type:'fields'},{...sender,url:'https://jira.example.com/settings.html'}),undefined);
  assert.equal(h.calls.length,1);
  });
+
+test('native refresh commands reject unrelated senders and use stored preferences',async()=>{
+ const h=harness();await h.run('chain');await h.run('globalThis.executions=[];chrome.scripting={executeScript:async x=>{executions.push(x);return [{result:{supported:true}}];}}');
+ for(const sender of [{id:'other',tab:{id:1},frameId:0,url:'https://jira.example.com/secure/RapidBoard.jspa'},{id:'test',tab:{id:1},frameId:1,url:'https://jira.example.com/secure/RapidBoard.jspa'},{id:'test',tab:{id:1},frameId:0,url:'https://jira.example.com/browse/D-1'},{id:'test',tab:{id:1},frameId:0,url:'https://evil.example/secure/RapidBoard.jspa'}])assert.equal((await h.message({type:'nativeRefreshConfigure'},sender)).ok,false);
+ assert.equal(await h.run('executions.length'),0);
+ const r=await h.message({type:'nativeRefreshConfigure',mode:'manual',seconds:1},{id:'test',tab:{id:1},frameId:0,url:'https://jira.example.com/secure/RapidBoard.jspa?rapidView=1'});assert.equal(r.ok,true);assert.equal(await h.run('executions[1].args[0].seconds'),300);assert.equal(await h.run('executions[1].world'),'MAIN');
+});
