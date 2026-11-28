@@ -1,4 +1,5 @@
 importScripts('runtime-messages.js');
+importScripts('board-workspace-core.js', 'board-workspace-store.js');
 importScripts('network-core.js', 'connection.js', 'reports-core.js', 'board-core.js', 'sprint-core.js', 'tools-core.js', 'tools-store.js', 'notes-core.js', 'ai-core.js');
 importScripts('network-worker.js', 'network-client.js');
 importScripts('diagnostics-core.js', 'diagnostics-probe.js', 'diagnostics-worker.js');
@@ -17,7 +18,7 @@ async function scheduleNext(state) {
 }
 let chain = Promise.resolve();
 const serial = fn => { const next = chain.then(fn); chain = next.catch(() => {}); return next; };
-const CONTENT_FILES = ["src/runtime-messages.js", "src/network-client.js", "src/control-core.js", "src/ui-theme.js", "src/jira-theme.js", "src/api.js", "src/team-panel.js", "src/content.js", "src/board-core.js", "src/active-board.js", "src/native-refresh.js", "src/sprint-core.js", "src/sprint-client.js", "src/sprint-capacity.js", "src/vendor/marked.umd.js", "src/ai-markdown.js", "src/ai-ui.js", "src/ai-board.js", "src/sprint-ui.js", "src/sprint-report.js", "src/private-notes.js"];
+const CONTENT_FILES = ["src/runtime-messages.js", "src/network-client.js", "src/control-core.js", "src/ui-theme.js", "src/jira-theme.js", "src/api.js", "src/team-panel.js", "src/content.js", "src/board-core.js", "src/board-workspace-core.js", "src/board-workspace.js", "src/active-board.js", "src/native-refresh.js", "src/sprint-core.js", "src/sprint-client.js", "src/sprint-capacity.js", "src/vendor/marked.umd.js", "src/ai-markdown.js", "src/ai-ui.js", "src/ai-board.js", "src/sprint-ui.js", "src/sprint-report.js", "src/private-notes.js"];
 function isJiraPage(url,base){return !!base && typeof url==='string' && url.startsWith(base+'/');}
 async function broadcastPrefs(prefs,base){if(base===undefined)base=(await read()).baseUrl;if(!base)return;const tabs=await chrome.tabs.query({url:new URL(base).origin+'/*'});await Promise.allSettled(tabs.filter(t=>isJiraPage(t.url,base)).map(t=>chrome.tabs.sendMessage(t.id,{type:'boardPrefsChanged',prefs})));}
 async function syncContent(){
@@ -265,6 +266,11 @@ chrome.runtime.onMessage.addListener((message, sender, reply) => {
       await chrome.storage.local.set({[key]:state});return state;
     };
     (['profileGet','snapshotList'].includes(message.op)?operation():serial(operation)).then(data=>reply({ok:true,data}),error=>reply({ok:false,error:error.message}));return true;
+  }
+  if (message.type === 'boardWorkspace') {
+    (async()=>JbpBoardWorkspaceStore.handle(message,sender,JbpConnection.from(await read()).baseUrl,
+      fn=>globalThis.JbpStorage ? JbpStorage.transaction(fn) : serial(()=>fn(chrome.storage.local))))()
+      .then(data=>reply({ok:true,data}),error=>reply({ok:false,error:error.message}));return true;
   }
   if (sender.id === chrome.runtime.id && ['boardPrefsGet', 'boardPrefsSet'].includes(message.type)) {
     const popup = ['settings.html','onboarding.html'].some(name=>sender.url?.split(/[?#]/)[0] === chrome.runtime.getURL(name));

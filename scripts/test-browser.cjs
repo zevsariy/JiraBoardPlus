@@ -4,7 +4,7 @@ const {mkdirSync}=require('node:fs');
 const path=require('node:path');
 const root=path.resolve(__dirname,'..');
 mkdirSync(path.join(root,'test-output'),{recursive:true});
-const tests=['flow-insights-browser','metrics-export-browser','analytics-browser','performance-dom-browser','jira-style-browser','restore-browser','settings-center-browser','diagnostics-browser','control-browser','control-board-browser','browser','active-board-browser','board-load-browser','native-refresh-browser','board-regression','parents-browser','card-fields-browser','notes-browser','report-browser','sprint-browser','capacity-browser','metrics-browser','dashboard-browser','tools-browser','roadmap-browser','ai-browser','jira-ui-browser','onboarding-browser','ui-browser','team-settings-browser','embedded-browser','extension-smoke'];
+const tests=['board-workspace-browser','flow-insights-browser','metrics-export-browser','analytics-browser','performance-dom-browser','jira-style-browser','restore-browser','settings-center-browser','diagnostics-browser','control-browser','control-board-browser','browser','active-board-browser','board-load-browser','native-refresh-browser','board-regression','parents-browser','card-fields-browser','notes-browser','report-browser','sprint-browser','capacity-browser','metrics-browser','dashboard-browser','tools-browser','roadmap-browser','ai-browser','jira-ui-browser','onboarding-browser','ui-browser','team-settings-browser','embedded-browser','extension-smoke'];
 const failed=[];
 for(const name of tests){
   console.log(`\n[Browser test] ${name}`);

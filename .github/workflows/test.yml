@@ -22,7 +22,7 @@ jobs:
       - run: node scripts/build-ui-theme.cjs
       - run: git diff --exit-code -- src/ui-theme.js
   browser:
-    name: Full browser suite (32 scenarios)
+    name: Full browser suite (33 scenarios)
     runs-on: ubuntu-latest
     timeout-minutes: 30
     env:

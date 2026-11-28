@@ -6,7 +6,7 @@ function fixture(){
  const lockQueues=new Map(),locks={request(name,fn){const p=(lockQueues.get(name)||Promise.resolve()).catch(()=>{}).then(fn);lockQueues.set(name,p);return p;}};
  const set=async values=>{if(fail)throw Error('quota');Object.assign(state,structuredClone(values));};
  const c=vm.createContext({URL,TextEncoder,crypto:require('node:crypto').webcrypto,navigator:{locks},serial:fn=>locks.request('serial',fn),JbpStorage:{transaction:fn=>locks.request('jbp-storage-commit',()=>fn({set}))},scheduleNext:async()=>{},syncContent:async()=>{},broadcastPrefs:async()=>{},chrome:{runtime:{id:'fixture',getURL:p=>'chrome-extension://fixture/'+p},permissions:{contains:async()=>permission},storage:{local:{get:async keys=>keys===null?structuredClone(state):Object.fromEntries((Array.isArray(keys)?keys:[keys]).filter(k=>k in state).map(k=>[k,structuredClone(state[k])]))},session:{get:async key=>({[key]:structuredClone(session[key])}),set:async values=>Object.assign(session,structuredClone(values)),remove:async key=>delete session[key]}}}});
- for(const n of ['connection','network-core','reports-core','board-core','sprint-core','tools-core','ai-core','control-core','roadmap-core','analytics-core','restore-core','restore-worker'])vm.runInContext(fs.readFileSync(path.join(__dirname,'../src/'+n+'.js'),'utf8'),c);
+ for(const n of ['connection','network-core','reports-core','board-core','board-workspace-core','sprint-core','tools-core','ai-core','control-core','roadmap-core','analytics-core','restore-core','restore-worker'])vm.runInContext(fs.readFileSync(path.join(__dirname,'../src/'+n+'.js'),'utf8'),c);
  return {state,c,fail:()=>fail=true,deny:()=>permission=false,call:(op,extra={},tab=1)=>c.restoreMessage({op,...extra},{id:'fixture',url:'chrome-extension://fixture/restore.html',tab:{id:tab}}),archive:data=>({schema:'jira-board-plus/settings-archive/v1',baseUrl:root,data})};
 }
 test('restore applies only selected settings, preserving secrets, reports, snapshots and unknown keys',async()=>{
@@ -66,4 +66,16 @@ test('analytics profiles survive settings backup and restore with calendar, rule
  f.state[key]=profile;const archive=f.c.JbpRestore.exportSettings(f.state);assert.equal(archive.data[key].calendar.zone,'Europe/Moscow');assert.equal(archive.data[key].views[0].name,'Daily');assert.equal(archive.data[key].statusRoles['4'],'wait');
  const parsed=f.c.JbpRestore.parse(archive);assert.ok(parsed.rows.some(r=>r.key===key));
  assert.throws(()=>f.c.JbpRestore.parse({...archive,data:{[key]:{...profile,metrics:[{...profile.metrics[0],end:[]}]}}}));
+});
+
+
+test('personal board settings round trip with account scope and fresh revision, without touching old preferences',async()=>{
+ const f=fixture(),key='jbpBoardWorkspace:'+encodeURIComponent(root)+':alice:7';
+ f.state[key]={version:1,revision:8,views:[{id:'one',name:'Team',filters:{team:'Alpha'}}],active:'one',context:{enabled:true,fields:['status','parent']}};
+ const archive=f.c.JbpRestore.exportSettings(f.state);assert.equal(archive.data[key].active,'one');
+ const parsed=f.c.JbpRestore.parse(archive),row=parsed.rows.find(r=>r.key===key);assert.ok(row);
+ const next=f.c.JbpRestore.merged(row,{...f.state,[key]:{...f.state[key],revision:20}});assert.equal(next.revision,21);
+ assert.equal(f.state.jbpBoardPrefs.future,'keep');
+ const foreign='jbpBoardWorkspace:'+encodeURIComponent('https://other.example')+':alice:7';
+ assert.equal(f.c.JbpRestore.rows({[foreign]:f.state[key]},root).rows.length,0);
 });

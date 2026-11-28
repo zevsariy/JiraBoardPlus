@@ -7,6 +7,7 @@
   const context=document.querySelector('meta[name="ajs-context-path"]')?.content||'';
   if(context&&!/^\/[\w/-]*$/.test(context))return;
   let prefs={...B.defaults},current='',controller,running=false,rerun=false,forceNext=false,timer,rows=new Map(),additions=new Map(),scopeAt=0,scopeError='',errors=[],bar,fetchedAt=0;
+  let boardConfiguration,boardAccount=document.querySelector('meta[name="ajs-remote-user"]')?.content||'';
   let tooltip,tooltipAnchor,hideTimer,controlRules=[],riskCache;
   function hideTooltip(){clearTimeout(hideTimer);tooltip?.remove();tooltip=null;tooltipAnchor?.setAttribute('aria-expanded','false');tooltipAnchor=null;}
   function scheduleHide(){clearTimeout(hideTimer);hideTimer=setTimeout(hideTooltip,220);}
@@ -31,7 +32,7 @@
   function route(){const u=new URL(location.href),id=u.searchParams.get('rapidView');return u.pathname.endsWith('/secure/RapidBoard.jspa')&&/^\d+$/.test(id||'')&&['work','detail','planning','planning.nodetail',null].includes(u.searchParams.get('view'))?id:null;}
   function planning(){return ['planning','planning.nodetail'].includes(new URL(location.href).searchParams.get('view'));}
   function cardPool(){return planning()?document.querySelector('#ghx-plan, #ghx-backlog'):document.querySelector('#ghx-pool');}
-  function cards(pool){return [...pool.querySelectorAll('.ghx-issue[data-issue-key], .ghx-issue-compact[data-issue-key]')].filter(el=>keyPattern.test(el.dataset.issueKey)&&el.getClientRects().length);}
+  function cards(pool){return [...pool.querySelectorAll('.ghx-issue[data-issue-key], .ghx-issue-compact[data-issue-key]')].filter(el=>keyPattern.test(el.dataset.issueKey)&&(el.getClientRects().length||el.hasAttribute('data-jbp-view-hidden')));}
   function clearCardStyle(el){el.removeAttribute('data-jbp-risk');el.style.removeProperty('--jbp-risk');el.removeAttribute('data-jbp-added');el.removeAttribute('data-jbp-filled');for(const key of ['--jbp-added','--jbp-width','--jbp-fill'])el.style.removeProperty(key);}
   function clean(){riskCache=null;hideTooltip();document.querySelectorAll('[data-jbp-card],[data-jbp-board]').forEach(el=>el.remove());document.querySelectorAll('[data-jbp-added],[data-jbp-filled],[data-jbp-risk]').forEach(clearCardStyle);bar=null;}
   const css=document.createElement('style');css.textContent='[data-jbp-risk]{box-shadow:inset 5px 0 var(--jbp-risk)!important}[data-jbp-added]{outline:var(--jbp-width) solid var(--jbp-added)!important;outline-offset:calc(-1 * var(--jbp-width))}[data-jbp-filled]{background-color:var(--jbp-fill)!important}[data-jbp-card]{display:block;clear:both;padding:4px 7px;pointer-events:auto!important;position:relative;z-index:2}[data-jbp-board]{display:block;clear:both;margin:6px 10px}';document.head.append(css);
@@ -109,6 +110,7 @@
     return riskCache.risks;
   }
   function draw(pool,visible=cards(pool)){
+    globalThis.JbpBoardWorkspace?.update(current,rows,boardConfiguration);
     if(tooltip&&!tooltipAnchor?.isConnected)hideTooltip();
     let attention=0,added=0;const risks=risksForCards();
     for(const card of visible){
@@ -160,11 +162,12 @@
   }
   async function refresh(){
     lastLocation=location.href;
-    const id=route();
+    const id=route(),account=document.querySelector('meta[name="ajs-remote-user"]')?.content||'';
+    if(account!==boardAccount){controller?.abort();rows.clear();additions.clear();scopeAt=0;boardConfiguration=undefined;boardAccount=account;}
     if(!id||!prefs.visuals||(planning()&&!prefs.backlog)||!(prefs.daily||prefs.scope||prefs.age||prefs.build||parentEnabled()||cardFieldsEnabled()||controlRules.length)){
       controller?.abort();if(current){clean();rows.clear();additions.clear();scopeAt=0;current='';errors=[];}return;
     }
-    if(current!==id){controller?.abort();clean();rows.clear();additions.clear();scopeAt=0;scopeError='';fetchedAt=0;errors=[];current=id;}
+    if(current!==id){controller?.abort();clean();rows.clear();additions.clear();scopeAt=0;scopeError='';fetchedAt=0;errors=[];boardConfiguration=undefined;current=id;}
     const pool=cardPool();
     // Jira can temporarily detach/hide the pool while opening Details. Keep the cache.
     if(!pool||!pool.getClientRects().length||document.hidden||(prefs.nativeRefreshPauseHidden&&!document.hasFocus()))return;
@@ -174,10 +177,10 @@
     const queue=(prefs.daily||prefs.age||prefs.build||parentEnabled()||cardFieldsEnabled()||controlRules.length)?keys.filter(k=>forceNext||!rows.has(k)||rows.get(k).config!==signature||(auto&&Date.now()-rows.get(k).at>=ttl)):[];
     const scopeDue=prefs.scope&&(forceNext||!scopeAt||(auto&&Date.now()-scopeAt>=ttl));
     if(!queue.length&&!scopeDue){if(keys.length&&Date.now()-(globalThis.jbpLastCacheNotice||0)>60000){globalThis.jbpLastCacheNotice=Date.now();globalThis.JbpNetwork?.rpc({op:'cacheHit'}).catch(()=>{});}return;}
-    forceNext=false;running=true;controller=new AbortController();const signal=controller.signal,p=prefs,nextRows=new Map(rows);let nextScope=additions,nextScopeAt=scopeAt,nextScopeError=scopeError;const nextErrors=[];
+    forceNext=false;running=true;controller=new AbortController();const signal=controller.signal,p=prefs,nextRows=new Map(rows);let nextScope=additions,nextScopeAt=scopeAt,nextScopeError=scopeError,nextBoardConfiguration=boardConfiguration;const nextErrors=[];
     if(visible.length>300)nextErrors.push('Обрабатываются первые 300 карточек. Уточните фильтр доски.');draw(pool,visible);
     try{
-      if(scopeDue){try{const config=await get(`agile/1.0/board/${id}/configuration`,signal);nextScope=config.type==='kanban'?new Map():await loadScope(id,signal);nextScopeError='';}catch(e){if(signal.aborted)throw e;nextScopeError=e.message;}nextScopeAt=Date.now();}
+      if(scopeDue){try{const config=await get(`agile/1.0/board/${id}/configuration`,signal);nextBoardConfiguration=config;nextScope=config.type==='kanban'?new Map():await loadScope(id,signal);nextScopeError='';}catch(e){if(signal.aborted)throw e;nextScopeError=e.message;}nextScopeAt=Date.now();}
       if(nextScopeError)nextErrors.push(`Состав спринта: ${nextScopeError}`);
       let fieldsPromise;
       const fields=()=>fieldsPromise||(fieldsPromise=get('api/2/field',signal));
@@ -208,15 +211,15 @@
         nextRows.set(key,entry);
       }catch(e){if(!signal.aborted)nextRows.set(key,{...rows.get(key),at:Date.now(),config:signature,error:e.message,ageError:e.message});}}})();
       if(Date.now()<retryAt)nextErrors.push('Запросы приостановлены до '+new Date(retryAt).toLocaleTimeString()+'. Показаны последние доступные данные.');
-      if(!signal.aborted&&current===id&&fetchKey(prefs)===signature){rows=nextRows;additions=nextScope;scopeAt=nextScopeAt;scopeError=nextScopeError;errors=nextErrors;fetchedAt=Date.now();}
+      if(!signal.aborted&&current===id&&boardAccount===account&&fetchKey(prefs)===signature){boardConfiguration=nextBoardConfiguration;rows=nextRows;additions=nextScope;scopeAt=nextScopeAt;scopeError=nextScopeError;errors=nextErrors;fetchedAt=Date.now();}
     }catch(e){if(!signal.aborted)errors=[e.message];}
-    finally{if(signal.aborted&&(document.hidden||(prefs.nativeRefreshPauseHidden&&!document.hasFocus()))&&current===id&&fetchKey(prefs)===signature){rows=nextRows;additions=nextScope;scopeAt=nextScopeAt;scopeError=nextScopeError;}running=false;const live=cardPool();if(current===id&&route()===id&&live&&!document.hidden)draw(live);if(rerun||forceNext){rerun=false;setTimeout(refresh,0);}}
+    finally{if(signal.aborted&&(document.hidden||(prefs.nativeRefreshPauseHidden&&!document.hasFocus()))&&current===id&&boardAccount===account&&fetchKey(prefs)===signature){boardConfiguration=nextBoardConfiguration;rows=nextRows;additions=nextScope;scopeAt=nextScopeAt;scopeError=nextScopeError;}running=false;const live=cardPool();if(current===id&&route()===id&&live&&!document.hidden)draw(live);if(rerun||forceNext){rerun=false;setTimeout(refresh,0);}}
   }
   function apply(value){try{const next=B.validate(value);if(fetchKey(prefs)!==fetchKey(next))controller?.abort();prefs=next;refresh();}catch(e){console.warn('Board Plus:',e.message);}}
   const setControlRules=value=>{try{controlRules=globalThis.JbpControl?JbpControl.rules(value):[];refresh();}catch{controlRules=[];}};
   chrome.runtime.onMessage.addListener(m=>{if(m.type==='boardPrefsChanged')apply(m.prefs);if(m.type==='controlRulesChanged')setControlRules(m.rules);});
   if(globalThis.JbpControl)chrome.runtime.sendMessage({type:'controlRulesGet'}).then(r=>{if(r?.ok)setControlRules(r.data);}).catch(()=>{});chrome.runtime.sendMessage({type:'boardPrefsGet'}).then(r=>{if(r?.ok)apply(r.data);}).catch(()=>{});
-  const poolSelector='#ghx-pool, #ghx-plan, #ghx-backlog',ownedSelector='[data-jbp-card],[data-jbp-board],[data-jbp-tooltip]';
+  const poolSelector='#ghx-pool, #ghx-plan, #ghx-backlog',ownedSelector='[data-jbp-card],[data-jbp-board],[data-jbp-tooltip],[data-jbp-workspace],[data-jbp-context],[data-jbp-workspace-dialog]';
   const containsPool=node=>node.nodeType===1&&(node.matches(poolSelector)||node.querySelector(poolSelector));
   new MutationObserver(records=>{
     if(document.hidden)return;
