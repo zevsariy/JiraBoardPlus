@@ -1,4 +1,5 @@
 importScripts('runtime-messages.js');
+importScripts('composer-core.js', 'composer-store.js');
 importScripts('board-workspace-core.js', 'board-workspace-store.js');
 importScripts('network-core.js', 'connection.js', 'reports-core.js', 'board-core.js', 'sprint-core.js', 'tools-core.js', 'tools-store.js', 'notes-core.js', 'ai-core.js');
 importScripts('network-worker.js', 'network-client.js');
@@ -28,10 +29,18 @@ async function syncContent(){
   const permitted=base&&await chrome.permissions.contains({origins:[new URL(base).origin+'/*']});
   await syncNativeRefresh(base,permitted);
   await syncJiraStyle(base,permitted);
+  await syncComposer(base,permitted);
   const matches=permitted?[base+'/secure/RapidBoard.jspa*',base+'/browse/*']:[];
   if(registered.length && JSON.stringify(registered[0].matches)===JSON.stringify(matches) && JSON.stringify(registered[0].js)===JSON.stringify(CONTENT_FILES))return;
   if(registered.length)await chrome.scripting.unregisterContentScripts({ids:['jbp-jira']});
   if(permitted)await chrome.scripting.registerContentScripts([{id:'jbp-jira',matches,js:CONTENT_FILES,runAt:'document_idle',persistAcrossSessions:true}]);
+}
+async function syncComposer(base,permitted){
+  const id='jbp-composer',matches=permitted?[base+'/*']:[],js=['src/runtime-messages.js','src/composer.js'];
+  const old=await chrome.scripting.getRegisteredContentScripts({ids:[id]});
+  if(old.length&&JSON.stringify(old[0].matches)===JSON.stringify(matches)&&JSON.stringify(old[0].js)===JSON.stringify(js))return;
+  if(old.length)await chrome.scripting.unregisterContentScripts({ids:[id]});
+  if(permitted)await chrome.scripting.registerContentScripts([{id,matches,js,runAt:'document_idle',persistAcrossSessions:true}]);
 }
 async function syncJiraStyle(base,permitted){
   const id='jbp-jira-style',matches=permitted?[base+'/*']:[];
@@ -266,6 +275,12 @@ chrome.runtime.onMessage.addListener((message, sender, reply) => {
       await chrome.storage.local.set({[key]:state});return state;
     };
     (['profileGet','snapshotList'].includes(message.op)?operation():serial(operation)).then(data=>reply({ok:true,data}),error=>reply({ok:false,error:error.message}));return true;
+  }
+  if (message.type === 'composer') {
+    (async()=>JbpComposerStore.handle(message,sender,JbpConnection.from(await read()).baseUrl,
+      fn=>globalThis.JbpStorage?JbpStorage.transaction(fn):serial(()=>fn(chrome.storage.local))))()
+      .then(data=>reply({ok:true,data}),error=>reply({ok:false,error:error.message}));
+    return true;
   }
   if (message.type === 'boardWorkspace') {
     (async()=>JbpBoardWorkspaceStore.handle(message,sender,JbpConnection.from(await read()).baseUrl,

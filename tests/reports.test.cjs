@@ -37,7 +37,7 @@ function harness() {
   const context = vm.createContext({ console, URL, Response, AbortSignal, crypto: require('node:crypto').webcrypto, setTimeout,
     fetch: async (url, options) => { calls.push({ url, options }); const next = replyQueue.shift(); if (!next) throw new Error('Unexpected request'); return new Response(JSON.stringify(next.body), { status: next.status || 200, headers: { 'content-type': 'application/json' } }); },
     chrome: {
-      storage: { onChanged:{addListener(){}}, local: { get: async () => structuredClone(storage), set: async data => { storage = structuredClone(data); }, setAccessLevel: async () => {} } },
+      storage: { onChanged:{addListener(){}}, local: { get: async () => structuredClone(storage), set: async data => { storage = { ...storage, ...structuredClone(data) }; }, setAccessLevel: async () => {} } },
       alarms: { get: async name => alarms.get(name), create: async (name, value) => alarms.set(name, value), clear: async name => alarms.delete(name), onAlarm: event() },
       runtime: { id: 'test', getURL: p => `chrome-extension://test/${p}`, onMessage: {addListener: fn => {handler=fn;}}, onInstalled: event(), onStartup: event() },
       action: { onClicked: event() }, tabs: { create: async () => {} },
@@ -129,7 +129,7 @@ test('configured Jira alone controls dynamic scripts; fresh install has no serve
  await h.run("write({...empty(),baseUrl:'https://jira-one.example/jira'})");await h.run('syncContent()');assert.equal(await h.run('registered.find(r=>r.id==="jbp-jira").matches[0]'),'https://jira-one.example/jira/secure/RapidBoard.jspa*');assert.equal(await h.run('registered.find(r=>r.id==="jbp-jira").matches[1]'),'https://jira-one.example/jira/browse/*');assert.equal(await h.run('registered.find(r=>r.id==="jbp-jira-style").matches[0]'),'https://jira-one.example/jira/*');assert.equal(await h.run('registered.find(r=>r.id==="jbp-native-refresh").world'),'MAIN');assert.equal(await h.run('registered.find(r=>r.id==="jbp-native-refresh").runAt'),'document_start');
  assert.equal(await h.run("isJiraPage('https://jira-one.example/jira/secure/RapidBoard.jspa','https://jira-one.example/jira')"),true);
  for(const url of ['https://jira-one.example/other/','https://jira-one.example.evil/jira/','https://jira-one.example/jira-other/'])assert.equal(await h.run(`isJiraPage(${JSON.stringify(url)},'https://jira-one.example/jira')`),false);
- await h.run("write({...empty(),baseUrl:'https://jira-two.example'})");await h.run('syncContent()');assert.equal(await h.run('registered.find(r=>r.id==="jbp-jira").matches[0]'),'https://jira-two.example/secure/RapidBoard.jspa*');assert.equal(await h.run('unregistered'),4);
+ await h.run("write({...empty(),baseUrl:'https://jira-two.example'})");await h.run('syncContent()');assert.equal(await h.run('registered.find(r=>r.id==="jbp-jira").matches[0]'),'https://jira-two.example/secure/RapidBoard.jspa*');assert.equal(await h.run('unregistered'),5);
  await h.run('chrome.permissions.contains=async()=>false');await h.run('syncContent()');assert.equal(await h.run('registered.length'),0);
 });
 
@@ -162,4 +162,18 @@ test('settings and sprint read operations respond while a serialized job is bloc
  const h=harness();await h.run('chain');await h.run('globalThis.unblock=null;serial(()=>new Promise(r=>unblock=r));void 0;');
  const sender={id:'test',url:'https://jira.example.com/secure/RapidBoard.jspa?rapidView=7',tab:{id:1},frameId:0};
  try{for(const m of [{type:'boardPrefsGet'},{type:'sprintStore',op:'profileGet',boardId:'7'},{type:'sprintStore',op:'snapshotList',boardId:'7'}]){const r=await Promise.race([h.message(m,sender),new Promise((_,reject)=>setTimeout(()=>reject(Error('read blocked by network queue')),250))]);assert.equal(r.ok,true);}}finally{await h.run('unblock()');}
+});
+
+
+test('composer worker RPC persists locally without touching settings or Jira',async()=>{
+ const h=harness();await h.run("write({...empty(),baseUrl:'https://jira.example/jira'})");
+ await h.run("chrome.runtime.id='extension';globalThis.sender={id:'extension',tab:{id:1},frameId:0,url:'https://jira.example/jira/browse/D-1'}");
+ const sender={id:'extension',tab:{id:1},frameId:0,url:'https://jira.example/jira/browse/D-1'};
+ const before=JSON.stringify(h.get());
+ const m={type:'composer',op:'draftPut',account:'alice',id:'copy',revision:0,context:'D-1',field:'comment',text:'Pending',original:''};
+ const saved=await h.message(m,sender);assert.equal(saved.ok,true);assert.equal(saved.data.drafts[0].text,'Pending');
+ assert.equal((await h.message({...m,op:'get'},sender)).data.drafts.length,1);
+ assert.equal((await h.message(m,sender)).ok,false);
+ assert.equal((await h.message({...m,op:'get'},{...sender,url:'https://jira.example/other/'})).ok,false);
+ assert.equal(JSON.stringify(h.get()),before);assert.equal(h.calls.length,0);
 });
