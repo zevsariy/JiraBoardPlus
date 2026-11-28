@@ -143,6 +143,19 @@ const assert = require('node:assert/strict');
     await attentionTab.getByRole('button',{name:'Перечитать локальную очередь',exact:true}).click();await attentionTab.getByText('Локальная очередь загружена. Запросов Jira нет.',{exact:true}).waitFor();
     await attentionTab.getByLabel('Состояние DEMO-99',{exact:true}).selectOption('done');await attentionTab.getByRole('button',{name:'Сохранить DEMO-99',exact:true}).click();await attentionTab.getByText('Сохранено локально.',{exact:true}).waitFor();
     assert.equal(await worker.evaluate(()=>chrome.alarms.get('jbp-attention-due')),undefined);
+    const archiveTab=await context.newPage();await archiveTab.goto(worker.url().replace('src/background.js','personal-workspace.html'));
+    await archiveTab.getByLabel('offline-test',{exact:true}).waitFor();
+    const personalRestored=await archiveTab.evaluate(async()=>{
+      const send=m=>chrome.runtime.sendMessage({type:'personalArchive',client:'smoke',...m});
+      const exported=await send({op:'export',accounts:['offline-test'],kinds:['draft','attention'],includeTexts:true});if(!exported.ok)throw Error(exported.error);
+      for(const row of exported.data.records)if(row.kind==='draft')row.value.text='Imported recovery';else {row.value.state='later';row.value.remindAt=Date.now()-1000;}
+      const preview=await send({op:'inspect',archive:exported.data});if(!preview.ok)throw Error(preview.error);
+      const applied=await send({op:'apply',token:preview.data.token,selected:preview.data.rows.filter(r=>r.status!=='same').map(r=>({id:r.id,action:r.status==='new'?'add':'replace'}))});if(!applied.ok)throw Error(applied.error);
+      return applied;
+    });assert.equal(personalRestored.ok,true);assert.equal(personalRestored.data.count,2);
+    assert.equal(await worker.evaluate(()=>chrome.alarms.get('jbp-attention-due')),undefined);
+    const undone=await archiveTab.evaluate(async()=>{const send=m=>chrome.runtime.sendMessage({type:'personalArchive',client:'smoke',...m}),p=await send({op:'undoInspect'});if(!p.ok)throw Error(p.error);return send({op:'apply',token:p.data.token,selected:p.data.rows.map(r=>({id:r.id,action:'undo'}))});});assert.equal(undone.ok,true);
+    assert.equal(await worker.evaluate(()=>testNotices.filter(n=>n.id==='jbp-attention').length),1,'import and rollback never replay reminder');
     console.log('Extension smoke OK: manifest, worker, real alarms/storage/messages, personal queue, empty report, manual runs, diff and notification dispatch; mocked Jira and OS notification only.');
   } finally { await context.close(); }
 })().catch(error => { console.error(error); process.exitCode = 1; });

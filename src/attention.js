@@ -18,6 +18,7 @@
    const heading=node('h2',undefined,card),link=node('a',x.key,heading);link.href=base+'/browse/'+encodeURIComponent(x.key);link.target='_blank';link.rel='noopener';node('span',' · '+(x.latest.summary||'Название ещё не загружено'),heading);
    node('p',names[x.state]+(due(x)?' · Пора вернуться':'')+(x.remindAt!==null?' · Напоминание: '+date(x.remindAt):''),card);
    node('p','Проверка Jira: '+date(x.checkedAt)+(x.error?' · '+x.error:''),card).className='muted';
+   if(x.restoredRemindAt&&x.remindAt===null)node('p','Восстановленное напоминание приостановлено: '+date(x.restoredRemindAt)+'. Назначьте новую дату для включения.',card);
    const list=node('ul',undefined,card),diff=C.changes(x);
    for(const d of diff)node('li',d.label+': '+(d.before||'пусто')+' → '+(d.after||'пусто')+' · '+date(d.at)+' · '+(d.source==='jira'?'Jira':'страница'),list);
    if(!diff.length)node('p',Object.keys(x.latest).length?'В известных полях нет отличий от просмотренного.':'Нет данных для сравнения.',card);

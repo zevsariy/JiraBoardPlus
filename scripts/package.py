@@ -7,7 +7,7 @@ import zipfile
 root = Path(__file__).resolve().parent.parent
 version = json.loads((root / "manifest.json").read_text(encoding="utf-8"))["version"]
 tracked = subprocess.check_output(["git", "ls-files", "-z"], cwd=root).decode().split("\0")
-allowed = {"manifest.json", "README.md", "DEVELOPMENT.md", "LICENSE", "CHANGELOG.md", "CONTROL.md", "DIAGNOSTICS.md", "SETTINGS.md", "RESTORE.md", "PRIVACY.md", "METRICS.md", "BOARD-WORKSPACE.md", "COMPOSER.md", "ATTENTION.md"}
+allowed = {"manifest.json", "README.md", "DEVELOPMENT.md", "LICENSE", "CHANGELOG.md", "CONTROL.md", "DIAGNOSTICS.md", "SETTINGS.md", "RESTORE.md", "PRIVACY.md", "METRICS.md", "BOARD-WORKSPACE.md", "COMPOSER.md", "ATTENTION.md", "PERSONAL-WORKSPACE.md"}
 files = sorted(p for p in tracked if p and (p in allowed or ("/" not in p and p.endswith(".html")) or p.startswith(("src/", "icons/"))))
 assert "manifest.json" in files
 out = root / "dist" / f"jira-board-plus-{version}.zip"

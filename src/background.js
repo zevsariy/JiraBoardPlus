@@ -2,6 +2,7 @@ importScripts('runtime-messages.js');
 importScripts('composer-core.js', 'composer-store.js');
 importScripts('attention-core.js', 'attention-worker.js');
 importScripts('board-workspace-core.js', 'board-workspace-store.js');
+importScripts('personal-archive-core.js', 'personal-archive-worker.js');
 importScripts('network-core.js', 'connection.js', 'reports-core.js', 'board-core.js', 'sprint-core.js', 'tools-core.js', 'tools-store.js', 'notes-core.js', 'ai-core.js');
 importScripts('network-worker.js', 'network-client.js');
 importScripts('diagnostics-core.js', 'diagnostics-probe.js', 'diagnostics-worker.js');
@@ -278,6 +279,11 @@ chrome.runtime.onMessage.addListener((message, sender, reply) => {
       await chrome.storage.local.set({[key]:state});return state;
     };
     (['profileGet','snapshotList'].includes(message.op)?operation():serial(operation)).then(data=>reply({ok:true,data}),error=>reply({ok:false,error:error.message}));return true;
+  }
+  if (message.type === 'personalArchive') {
+    JbpPersonalArchiveWorker.handle(message,sender,fn=>globalThis.JbpStorage?JbpStorage.transaction(fn):serial(()=>fn(chrome.storage.local)))
+      .then(data=>reply({ok:true,data}),error=>reply({ok:false,error:error.message}));
+    return true;
   }
   if (message.type === 'attention') {
     (async()=>JbpAttentionWorker.handle(message,sender,JbpConnection.from(await read()).baseUrl,

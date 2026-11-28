@@ -1,0 +1,50 @@
+const {test}=require('node:test'),assert=require('node:assert/strict');
+for(const f of ['board-workspace-core','composer-core','attention-core','personal-archive-core','personal-archive-worker'])require('../src/'+f+'.js');
+const C=JbpPersonalArchive,base='https://jira.example/jira',account='alice',ck=JbpComposer.key(base,account),ak=JbpAttention.key(base,account),bk=JbpBoardWorkspaceCore.storageKey(base,account,'7');
+const template={id:'template',name:'Bug',summary:'Title',description:'Secret',comment:'Comment',revision:3,updatedAt:100};
+const draft={id:'draft',context:'D-1',field:'comment',text:'Draft secret',original:'Before',revision:2,updatedAt:100};
+function fixture(){const attention=JbpAttention.change({},{op:'pin',key:'D-1',values:{status:'Open'}},100,()=> 'issue');attention.items[0]={...attention.items[0],note:'Private note',remindAt:Date.now()+3600000,notifiedAt:null};return {jbpReportsV1:{baseUrl:base,queries:[{id:'keep'}]},jbpBoardPrefs:{daily:true},jbpAI:{apiKey:'SECRET'},[ck]:{templates:[template],drafts:[draft],future:'keep'},[ak]:attention,[bk]:{...JbpBoardWorkspaceCore.empty(),views:[{id:'view',name:'Mine',filters:{text:'D'}}],active:'view'}};}
+function harness(initial=fixture()){let all=structuredClone(initial),session={},fail=false,schedules=0;const local={get:async k=>structuredClone(k===null?all:Object.fromEntries((Array.isArray(k)?k:[k]).filter(k=>Object.hasOwn(all,k)).map(k=>[k,all[k]]))),set:async v=>{if(fail)throw Error('Quota');Object.assign(all,structuredClone(v));}};global.chrome={runtime:{id:'ext',getURL:p=>'chrome-extension://ext/'+p},storage:{local,session:{get:async k=>({[k]:structuredClone(session[k])}),set:async v=>Object.assign(session,structuredClone(v)),remove:async k=>{delete session[k];}}}};global.JbpConnection={from:v=>v||{}};global.JbpAttentionWorker={reindex:async()=>{},schedule:async()=>{schedules++;}};global.fetch=()=>{throw Error('No network allowed');};let chain=Promise.resolve();const tx=fn=>{const p=chain.catch(()=>{}).then(()=>fn({set:local.set}));chain=p;return p;};const sender={id:'ext',url:'chrome-extension://ext/personal-workspace.html',documentId:'doc'};const call=(m,s=sender)=>JbpPersonalArchiveWorker.handle({client:'client',...m},s,tx);return {call,all:()=>all,session:()=>session,fail:v=>{fail=v;},sender,schedules:()=>schedules};}
+function archive(records){return {schema:C.SCHEMA,base,records};}
+test('selective export excludes secrets/notes by default and requires explicit text inclusion',()=>{
+ const all=fixture();const a=C.exportArchive(all,base,[account],['board','attention'],false);assert.equal(a.records.length,2);assert.equal(a.records.find(r=>r.kind==='attention').value.note,undefined);assert.ok(!JSON.stringify(a).includes('SECRET'));assert.ok(!JSON.stringify(a).includes('Private note'));
+ assert.throws(()=>C.exportArchive(all,base,[account],['draft'],false),/явно/);const b=C.exportArchive(all,base,[account],C.kinds,true);assert.equal(b.records.length,4);assert.equal(C.parse(b,base).length,4);
+ assert.equal(C.exportArchive(all,base,['bob'],C.kinds,true).records.length,0);
+});
+test('schema, scope, unsafe properties, limits and duplicate targets rejected without writes',()=>{
+ const row={kind:'template',account,value:template};for(const bad of [{...archive([row]),schema:'future'},{...archive([row]),base:'https://other.example'},archive([row,row]),archive([{...row,kind:'jbpAI'}]),archive([{...row,value:{...template,description:'x'.repeat(100001)}}])])assert.throws(()=>C.parse(bad,base));
+ assert.throws(()=>C.parse('{"schema":"'+C.SCHEMA+'","base":"'+base+'","records":[],"__proto__":{}}',base));
+ const r2={...row,value:{...template,id:'different'}};assert.throws(()=>C.rows([row,r2],fixture(),base),/одну/);
+});
+test('preview, explicit replacement and rollback preserve settings and invalidate old editors',async()=>{
+ const h=harness(),before=structuredClone(h.all()),changed={kind:'template',account,value:{...template,description:'Imported'}};
+ const p=await h.call({op:'inspect',archive:archive([changed])});assert.equal(p.rows[0].status,'conflict');assert.deepEqual(h.all(),before);assert.equal(p.rows[0].before.description,'Secret');assert.equal(p.rows[0].after.description,'Imported');
+ await assert.rejects(h.call({op:'apply',token:p.token,selected:[{id:'0',action:'add'}]}));
+ await h.call({op:'apply',token:p.token,selected:[{id:'0',action:'replace'}]});assert.equal(h.all()[ck].templates[0].description,'Imported');assert.equal(h.all()[ck].templates[0].revision,4);assert.deepEqual(h.all()[ck].drafts,before[ck].drafts);assert.equal(h.all()[ck].future,'keep');assert.deepEqual(h.all().jbpReportsV1,before.jbpReportsV1);assert.deepEqual(h.all().jbpBoardPrefs,before.jbpBoardPrefs);assert.deepEqual(h.all().jbpAI,before.jbpAI);
+ await assert.rejects(h.call({op:'apply',token:p.token,selected:[{id:'0',action:'replace'}]}));
+ const u=await h.call({op:'undoInspect'});await h.call({op:'apply',token:u.token,selected:[{id:u.rows[0].id,action:'undo'}]});assert.equal(h.all()[ck].templates[0].description,'Secret');assert.ok(h.all()[ck].templates[0].revision>4);assert.deepEqual(h.all()[ck].drafts,before[ck].drafts);await assert.rejects(h.call({op:'undoInspect'}));
+});
+test('import and rollback pause touched reminders, preserve untouched reminders and redacted notes',async()=>{
+ const h=harness(),original=structuredClone(h.all()[ak].items[0]);h.all()[ak].items.push({...original,id:'other',key:'D-2'});
+ const row={kind:'attention',account,notesIncluded:false,value:{...original,state:'waiting',note:undefined,remindAt:Date.now()-10000}};
+ const p=await h.call({op:'inspect',archive:archive([row])});assert.equal(p.rows[0].after.remindAt,null);await h.call({op:'apply',token:p.token,selected:[{id:'0',action:'replace'}]});let items=h.all()[ak].items;assert.equal(items[0].remindAt,null);assert.equal(items[0].note,'Private note');assert.equal(items[0].restoredRemindAt,row.value.remindAt);assert.equal(items[1].remindAt,original.remindAt);
+ const u=await h.call({op:'undoInspect'});await h.call({op:'apply',token:u.token,selected:[{id:'0',action:'undo'}]});items=h.all()[ak].items;assert.equal(items[0].remindAt,null);assert.equal(items[0].restoredRemindAt,original.remindAt);assert.equal(items[1].remindAt,original.remindAt);assert.equal(h.schedules(),2);
+});
+test('concurrent edits, changed connection, foreign previews and failed storage are non-mutating',async()=>{
+ const h=harness(),row={kind:'draft',account,value:{...draft,text:'Import'}};let p=await h.call({op:'inspect',archive:archive([row])});h.all()[ck].drafts[0].text='New local';let before=structuredClone(h.all());await assert.rejects(h.call({op:'apply',token:p.token,selected:[{id:'0',action:'replace'}]}),/изменились/);assert.deepEqual(h.all(),before);
+ p=await h.call({op:'inspect',archive:archive([row])});h.fail(true);await assert.rejects(h.call({op:'apply',token:p.token,selected:[{id:'0',action:'replace'}]}),/Quota/);assert.deepEqual(h.all(),before);h.fail(false);
+ await assert.rejects(h.call({op:'apply',token:p.token,selected:[{id:'0',action:'replace'}]},{...h.sender,documentId:'other'}));h.all().jbpReportsV1.baseUrl='https://other.example';await assert.rejects(h.call({op:'apply',token:p.token,selected:[{id:'0',action:'replace'}]}),/Подключение/);
+ await assert.rejects(h.call({op:'list'},{id:'ext',url:'https://jira.example/jira/browse/D-1'}));
+});
+test('rollback refuses post-import edits and partial rollback leaves remaining groups available',async()=>{
+ const h=harness(),rows=[{kind:'template',account,value:{...template,description:'Import'}},{kind:'board',account,board:'7',value:{...h.all()[bk],active:''}}];const p=await h.call({op:'inspect',archive:archive(rows)});await h.call({op:'apply',token:p.token,selected:p.rows.map(r=>({id:r.id,action:'replace'}))});h.all()[ck].drafts.push({...draft,id:'new'});
+ let u=await h.call({op:'undoInspect'});assert.equal(u.rows.find(r=>r.key===ck).status,'blocked');const b=u.rows.find(r=>r.key===bk);await h.call({op:'apply',token:u.token,selected:[{id:b.id,action:'undo'}]});assert.equal(h.all()[bk].active,'view');u=await h.call({op:'undoInspect'});assert.equal(u.rows.length,1);assert.equal(u.rows[0].status,'blocked');
+});
+test('adding entries is idempotent, rollback handles initially absent groups, aggregate limits are atomic',async()=>{
+ const h=harness({jbpReportsV1:{baseUrl:base}}),row={kind:'draft',account,value:draft};let p=await h.call({op:'inspect',archive:archive([row])});assert.equal(p.rows[0].status,'new');await h.call({op:'apply',token:p.token,selected:[{id:'0',action:'add'}]});p=await h.call({op:'inspect',archive:archive([row])});assert.equal(p.rows[0].status,'same');const u=await h.call({op:'undoInspect'});await h.call({op:'apply',token:u.token,selected:[{id:'0',action:'undo'}]});assert.equal(h.all()[ck].drafts.length,0);
+ h.all()[ck].templates=Array.from({length:50},(_,i)=>({...template,id:'t'+i,name:'Template '+i}));p=await h.call({op:'inspect',archive:archive([{kind:'template',account,value:{...template,id:'new',name:'New'}}])});const before=structuredClone(h.all());await assert.rejects(h.call({op:'apply',token:p.token,selected:[{id:'0',action:'add'}]}),/лимит/);assert.deepEqual(h.all(),before);
+});
+test('expired and replayed previews cannot write; unrelated settings changes survive apply',async()=>{
+ const h=harness(),row={kind:'draft',account,value:{...draft,text:'Imported'}};let p=await h.call({op:'inspect',archive:archive([row])});h.session()['jbpPersonalPreview:client'].at=Date.now()-1800001;await assert.rejects(h.call({op:'apply',token:p.token,selected:[{id:'0',action:'replace'}]}),/устарел/);
+ p=await h.call({op:'inspect',archive:archive([row])});h.all().jbpBoardPrefs.daily=false;chrome.storage.session.remove=async()=>{throw Error('Session cleanup failed');};await h.call({op:'apply',token:p.token,selected:[{id:'0',action:'replace'}]});assert.equal(h.all().jbpBoardPrefs.daily,false);const before=structuredClone(h.all());await assert.rejects(h.call({op:'apply',token:p.token,selected:[{id:'0',action:'replace'}]}),/уже применена/);assert.deepEqual(h.all(),before);
+});

@@ -46,5 +46,5 @@ globalThis.JbpAttentionWorker = (() => {
   const result=await tx(async raw=>{const old=(await chrome.storage.local.get(key))[key]||empty(),next=C.change(old,m);await raw.set({[key]:next});return next;});
   try{await schedule(base);}catch{return {...result,notice:'Запись сохранена, но будильник не установлен. Перечитайте очередь для повторной попытки.'};}return result;
  }
- return {handle,schedule,fire,alarm,notice};
+ return {handle,schedule,fire,alarm,notice,reindex:async()=>{indexing=null;await index();}};
 })();
