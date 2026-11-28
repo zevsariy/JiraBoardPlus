@@ -1,6 +1,6 @@
 # Chrome Web Store — Jira Board Plus
 
-Last updated: 2026-11-28. Release documentation: 0.38.0. This file is excluded from the extension ZIP. It records listing information, not a claim that this release has been submitted to the store.
+Last updated: 2026-11-28. Release documentation: 0.39.0. This file is excluded from the extension ZIP. It records listing information, not a claim that this release has been submitted to the store.
 
 ## Store listing
 
@@ -77,3 +77,8 @@ Local board views, cached card context and visibility explanations use existing 
 ## 0.38.0 — Local drafts and personal templates
 
 Local recovery for plain-text comments, descriptions and summaries; independent editor copies, storage error recovery and reusable task/comment templates. Rich-text editors require text mode. No additional Jira HTTP calls or permissions; existing settings preserved. Draft/template text stays in the browser profile and is excluded from current archives and AI requests.
+
+
+## 0.39.0 — Personal attention queue
+
+Local pinned issues, personal notes, snoozed reminders and observed field changes. No background Jira polling. Explicit refresh verifies the signed-in user and reads selected fields for up to 50 issues through the existing shared request budget. Existing settings and permissions remain unchanged. Generic local notifications reveal no issue content.

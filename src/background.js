@@ -1,5 +1,6 @@
 importScripts('runtime-messages.js');
 importScripts('composer-core.js', 'composer-store.js');
+importScripts('attention-core.js', 'attention-worker.js');
 importScripts('board-workspace-core.js', 'board-workspace-store.js');
 importScripts('network-core.js', 'connection.js', 'reports-core.js', 'board-core.js', 'sprint-core.js', 'tools-core.js', 'tools-store.js', 'notes-core.js', 'ai-core.js');
 importScripts('network-worker.js', 'network-client.js');
@@ -30,13 +31,14 @@ async function syncContent(){
   await syncNativeRefresh(base,permitted);
   await syncJiraStyle(base,permitted);
   await syncComposer(base,permitted);
+  await JbpAttentionWorker.schedule(base).catch(console.error);
   const matches=permitted?[base+'/secure/RapidBoard.jspa*',base+'/browse/*']:[];
   if(registered.length && JSON.stringify(registered[0].matches)===JSON.stringify(matches) && JSON.stringify(registered[0].js)===JSON.stringify(CONTENT_FILES))return;
   if(registered.length)await chrome.scripting.unregisterContentScripts({ids:['jbp-jira']});
   if(permitted)await chrome.scripting.registerContentScripts([{id:'jbp-jira',matches,js:CONTENT_FILES,runAt:'document_idle',persistAcrossSessions:true}]);
 }
 async function syncComposer(base,permitted){
-  const id='jbp-composer',matches=permitted?[base+'/*']:[],js=['src/runtime-messages.js','src/composer.js'];
+  const id='jbp-composer',matches=permitted?[base+'/*']:[],js=['src/runtime-messages.js','src/composer.js','src/attention-content.js'];
   const old=await chrome.scripting.getRegisteredContentScripts({ids:[id]});
   if(old.length&&JSON.stringify(old[0].matches)===JSON.stringify(matches)&&JSON.stringify(old[0].js)===JSON.stringify(js))return;
   if(old.length)await chrome.scripting.unregisterContentScripts({ids:[id]});
@@ -98,6 +100,7 @@ async function arm() {
   }
   if(Object.keys(updates).length)await chrome.storage.local.set(updates);
   await syncContent();
+  await JbpAttentionWorker.schedule(JbpConnection.from(await read()).baseUrl).catch(console.error);
   await chrome.storage.local.setAccessLevel({ accessLevel: 'TRUSTED_CONTEXTS' });
   if (!await chrome.alarms.get(ALARM)) await chrome.alarms.create(ALARM, { periodInMinutes: 1 });
   await scheduleNext(await read());
@@ -276,6 +279,12 @@ chrome.runtime.onMessage.addListener((message, sender, reply) => {
     };
     (['profileGet','snapshotList'].includes(message.op)?operation():serial(operation)).then(data=>reply({ok:true,data}),error=>reply({ok:false,error:error.message}));return true;
   }
+  if (message.type === 'attention') {
+    (async()=>JbpAttentionWorker.handle(message,sender,JbpConnection.from(await read()).baseUrl,
+      fn=>globalThis.JbpStorage?JbpStorage.transaction(fn):serial(()=>fn(chrome.storage.local))))()
+      .then(data=>reply({ok:true,data}),error=>reply({ok:false,error:error.message}));
+    return true;
+  }
   if (message.type === 'composer') {
     (async()=>JbpComposerStore.handle(message,sender,JbpConnection.from(await read()).baseUrl,
       fn=>globalThis.JbpStorage?JbpStorage.transaction(fn):serial(()=>fn(chrome.storage.local))))()
@@ -351,10 +360,10 @@ chrome.runtime.onMessage.addListener((message, sender, reply) => {
   (message.type==='get'?command(message):serial(() => command(message))).then(data => reply({ ok: true, data }), error => reply({ ok: false, error: error.message }));
   return true;
 });
-chrome.alarms.onAlarm.addListener(alarm => { if ([ALARM, DUE_ALARM, 'jbp-now'].includes(alarm.name)) serial(tick).catch(console.error); });
+chrome.alarms.onAlarm.addListener(alarm => { if(alarm.name===JbpAttentionWorker.alarm){(async()=>JbpAttentionWorker.fire(JbpConnection.from(await read()).baseUrl,fn=>globalThis.JbpStorage?JbpStorage.transaction(fn):serial(()=>fn(chrome.storage.local))))().catch(console.error);return;} if ([ALARM, DUE_ALARM, 'jbp-now'].includes(alarm.name)) serial(tick).catch(console.error); });
 chrome.runtime.onInstalled.addListener(details => { serial(arm).catch(console.error); if(details?.reason==='install')chrome.tabs.create({url:chrome.runtime.getURL('onboarding.html')}).catch(console.error); });
 chrome.runtime.onStartup.addListener(() => { serial(async () => { await arm(); await tick(); }).catch(console.error); });
-chrome.notifications.onClicked.addListener(id => { if (id.startsWith('jbp:')) { chrome.tabs.create({ url: chrome.runtime.getURL(id==='jbp:test'?'report.html':`report.html#${encodeURIComponent(id.slice(4))}`) }); chrome.notifications.clear(id); } });
+chrome.notifications.onClicked.addListener(id => { if(id===JbpAttentionWorker.notice){chrome.tabs.create({url:chrome.runtime.getURL('attention.html')});chrome.notifications.clear(id);return;} if (id.startsWith('jbp:')) { chrome.tabs.create({ url: chrome.runtime.getURL(id==='jbp:test'?'report.html':`report.html#${encodeURIComponent(id.slice(4))}`) }); chrome.notifications.clear(id); } });
 serial(arm).catch(console.error);
 
 importScripts('ai-worker.js');

@@ -22,7 +22,7 @@ test('store isolates configured server/account, authorizes sender and commits un
  const all={jbpBoardPrefs:{daily:true},jbpReportsV1:{baseUrl:'https://jira.example/jira'}},raw={get:async k=>({[k]:all[k]}),set:async v=>Object.assign(all,v)};
  global.chrome={runtime:{id:'extension'},storage:{local:raw}};
  const sender={id:'extension',tab:{id:1},frameId:0,url:'https://jira.example/jira/browse/D-1'};let locks=0;
- const call=(m,s=sender)=>JbpComposerStore.handle({account:'alice',...m},s,'https://jira.example/jira',async fn=>{locks++;return fn(raw);});
+ const call=(m,s=sender)=>JbpComposerStore.handle({account:'alice',...m},s,'https://jira.example/jira',async fn=>{locks++;return fn({set:raw.set});});
  await call(draft);assert.equal(locks,1);assert.equal((await call({op:'get'})).drafts[0].text,'draft');
  assert.deepEqual(all.jbpBoardPrefs,{daily:true});assert.deepEqual((await call({op:'get',account:'bob'})).drafts,[]);
  for(const s of [{...sender,url:'https://evil.example/jira/'},{...sender,url:'https://jira.example/jira-other/'},{...sender,frameId:1},{...sender,id:'foreign'}])await assert.rejects(call(draft,s));

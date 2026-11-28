@@ -128,7 +128,22 @@ const assert = require('node:assert/strict');
     await metricsTab.evaluate(id=>chrome.runtime.sendMessage({type:'networkBudget',op:'release',id,status:200}),ticket.data.id);
     assert.equal((await controlTab.evaluate(()=>chrome.runtime.sendMessage({type:'networkBudget',op:'status'}))).data.active,0);
     const persisted=await worker.evaluate(()=>chrome.storage.session.get('jbpBudgetSession'));assert.equal(persisted.jbpBudgetSession.active.length,0);
-    console.log('Extension smoke OK: manifest, worker, real alarms/storage/messages, empty report, manual runs, diff and notification dispatch; mocked Jira and OS notification only.');
+    const composerSaved=await worker.evaluate(()=>JbpComposerStore.handle({account:'offline-test',op:'draftPut',id:'smoke-draft',revision:0,context:'DEMO-99',field:'comment',original:'',text:'Recovery'}, {id:chrome.runtime.id,tab:{id:1},frameId:0,url:'https://jira.example.com/jira/browse/DEMO-99'},'https://jira.example.com/jira',fn=>JbpStorage.transaction(fn)));
+    assert.equal(composerSaved.drafts[0].text,'Recovery');
+    // Real extension messaging and storage lock for the personal queue, no Jira calls.
+    const attentionTab=await context.newPage();await attentionTab.goto(worker.url().replace('src/background.js','attention.html?account=offline-test'));
+    await attentionTab.getByText('Локальная очередь загружена. Запросов Jira нет.',{exact:true}).waitFor();
+    await attentionTab.getByLabel('Ключ задачи',{exact:true}).fill('DEMO-99');await attentionTab.getByRole('button',{name:'Закрепить',exact:true}).click();await attentionTab.getByText('Задача закреплена локально.',{exact:true}).waitFor();
+    await attentionTab.getByRole('button',{name:'Через час DEMO-99',exact:true}).click();await attentionTab.getByText('Сохранено локально.',{exact:true}).waitFor();
+    assert.ok(await worker.evaluate(()=>chrome.alarms.get('jbp-attention-due')));
+    const queue=await attentionTab.evaluate(()=>chrome.runtime.sendMessage({type:'attention',op:'get',account:'offline-test'}));assert.equal(queue.ok,true);assert.equal(queue.data.items[0].key,'DEMO-99');
+    const reminder=await attentionTab.evaluate(revision=>chrome.runtime.sendMessage({type:'attention',op:'edit',account:'offline-test',key:'DEMO-99',revision,state:'later',note:'',remindAt:Date.now()-1000}),queue.data.items[0].revision);assert.equal(reminder.ok,true);
+    await attentionTab.waitForFunction(async()=>{const key='jbpAttention:'+encodeURIComponent('https://jira.example.com/jira')+':offline-test',s=(await chrome.storage.local.get(key))[key];return s?.items[0].notifiedAt===s?.items[0].remindAt;},{},{timeout:45000});
+    assert.equal(await worker.evaluate(async()=>{for(let i=0;i<50&&!testNotices.some(n=>n.id==='jbp-attention');i++)await new Promise(r=>setTimeout(r,20));return testNotices.filter(n=>n.id==='jbp-attention').length;}),1);
+    await attentionTab.getByRole('button',{name:'Перечитать локальную очередь',exact:true}).click();await attentionTab.getByText('Локальная очередь загружена. Запросов Jira нет.',{exact:true}).waitFor();
+    await attentionTab.getByLabel('Состояние DEMO-99',{exact:true}).selectOption('done');await attentionTab.getByRole('button',{name:'Сохранить DEMO-99',exact:true}).click();await attentionTab.getByText('Сохранено локально.',{exact:true}).waitFor();
+    assert.equal(await worker.evaluate(()=>chrome.alarms.get('jbp-attention-due')),undefined);
+    console.log('Extension smoke OK: manifest, worker, real alarms/storage/messages, personal queue, empty report, manual runs, diff and notification dispatch; mocked Jira and OS notification only.');
   } finally { await context.close(); }
 })().catch(error => { console.error(error); process.exitCode = 1; });
 

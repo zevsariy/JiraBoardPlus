@@ -11,7 +11,7 @@
 (() => {
  if(globalThis.JbpMessaging)return;
  const pending=new Map();
- const readOnly=m=>(m?.type==='composer'&&m.op==='get')||(m?.type==='boardWorkspace'&&m.op==='get')||['boardPrefsGet','connectionGet','embeddedConnection','aiGet','get'].includes(m?.type)||(m?.type==='sprintStore'&&['profileGet','snapshotList'].includes(m.op))||(m?.type==='embeddedReport'&&m.command?.type==='get');
+ const readOnly=m=>(m?.type==='attention'&&['get','accounts'].includes(m.op))||(m?.type==='composer'&&m.op==='get')||(m?.type==='boardWorkspace'&&m.op==='get')||['boardPrefsGet','connectionGet','embeddedConnection','aiGet','get'].includes(m?.type)||(m?.type==='sprintStore'&&['profileGet','snapshotList'].includes(m.op))||(m?.type==='embeddedReport'&&m.command?.type==='get');
  const channelError=e=>/message (?:channel|port) closed|receiving end does not exist|could not establish connection|listener indicated.*asynchronous|extension context invalidated/i.test(String(e?.message||e));
  const invalidated=e=>/extension context invalidated/i.test(String(e?.message||e));
  function friendly(error,reading){
