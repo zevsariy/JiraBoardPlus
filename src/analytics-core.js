@@ -16,7 +16,7 @@ globalThis.JbpAnalytics=(()=>{
  function metric(input){
   if(!input||typeof input.name!=='string'||!input.name.trim()||input.name.length>80)throw Error('Название метрики: от 1 до 80 символов.');
   const m={id:String(input.id||''),name:input.name.trim(),start:ids(input.start||[]),end:ids(input.end||[]),created:input.created===true,rule:input.rule||'final',measure:input.measure||'elapsed',counted:ids(input.counted||[]),excluded:ids(input.excluded||[]),types:input.types||[],sle:Number(input.sle??0)};
-  if(!/^[\w-]{1,80}$/.test(m.id)||m.id.startsWith('hist-')||['throughput','aging','cfd','wip','velocity','plan','burnup','burndown'].includes(m.id))throw Error('Некорректный идентификатор метрики.');
+  if(!/^[\w-]{1,80}$/.test(m.id)||m.id.startsWith('hist-')||['process-map','throughput','aging','cfd','wip','velocity','plan','burnup','burndown'].includes(m.id))throw Error('Некорректный идентификатор метрики.');
   if(!m.created&&!m.start.length||!m.end.length)throw Error('Выберите хотя бы один начальный и конечный статус.');
   if(m.start.some(id=>m.end.includes(id)))throw Error('Начальные и конечные статусы не должны совпадать.');
   if(!['final','first','each'].includes(m.rule)||!['elapsed','statuses'].includes(m.measure))throw Error('Выберите правило возвратов и способ расчёта.');
@@ -30,7 +30,8 @@ globalThis.JbpAnalytics=(()=>{
   if(!input||input.schema!==1||!Array.isArray(input.metrics)||!input.metrics.length||input.metrics.length>MAX_METRICS)throw Error('Профиль должен содержать от 1 до 20 метрик.');
   if(input.revision!=null&&(!Number.isSafeInteger(input.revision)||input.revision<1))throw Error('Некорректная версия профиля.');
   const metrics=input.metrics.map(metric);if(new Set(metrics.map(m=>m.id)).size!==metrics.length)throw Error('Идентификаторы метрик повторяются.');
-  const p={schema:1,revision:Number(input.revision)||1,template:input.template==='scrum'?'scrum':'kanban',calendar:calendar(input.calendar),metrics,primary:String(input.primary||metrics[0].id),hidden:input.hidden||[],order:input.order||[],views:input.views||[]};
+  const p={schema:1,revision:Number(input.revision)||1,template:input.template==='scrum'?'scrum':'kanban',calendar:calendar(input.calendar),metrics,primary:String(input.primary||metrics[0].id),hidden:input.hidden||[],order:input.order||[],views:input.views||[],statusRoles:input.statusRoles||{}};
+  if(!p.statusRoles||typeof p.statusRoles!=='object'||Array.isArray(p.statusRoles)||Object.keys(p.statusRoles).length>200||Object.entries(p.statusRoles).some(([id,role])=>!/^\d+$/.test(id)||!['active','wait','unknown'].includes(role)))throw Error('Роли статусов: выберите активную работу, ожидание или не задано.');
   if(!metrics.some(m=>m.id===p.primary))throw Error('Основная метрика не найдена.');
   for(const list of [p.hidden,p.order])if(!Array.isArray(list)||list.length>50||list.some(x=>typeof x!=='string'||!/^[-\w]{1,100}$/.test(x)))throw Error('Некорректный список графиков.');
   if(!Array.isArray(p.views)||p.views.length>10||p.views.some(v=>!v||typeof v.name!=='string'||!v.name.trim()||v.name.length>60||!Array.isArray(v.hidden)||!Array.isArray(v.order)||[...v.hidden,...v.order].some(x=>typeof x!=='string'||!/^[-\w]{1,100}$/.test(x))||v.hidden.length>50||v.order.length>50))throw Error('Можно сохранить до 10 представлений с названием до 60 символов.');
@@ -38,7 +39,7 @@ globalThis.JbpAnalytics=(()=>{
  }
  function template(mode,rules){
   const start=String(rules.workStatuses||'').split(',').filter(Boolean),end=String(rules.doneStatuses||'').split(',').filter(Boolean);
-  return {schema:1,revision:1,template:mode==='scrum'?'scrum':'kanban',calendar:calendar(),primary:'cycle',hidden:[],order:mode==='scrum'?['velocity','plan','burnup','burndown','cycle','throughput','aging','cfd','wip']:['cycle','throughput','aging','cfd','wip'],views:[],metrics:[{id:'cycle',name:'Cycle Time',start,end,created:false,rule:'final',measure:'elapsed',counted:[],excluded:[],types:[],sle:0},{id:'lead',name:'Lead Time',start:[],end,created:true,rule:'final',measure:'elapsed',counted:[],excluded:[],types:[],sle:0}].filter(m=>m.id==='cycle'||end.length)};
+  return {schema:1,revision:1,template:mode==='scrum'?'scrum':'kanban',calendar:calendar(),primary:'cycle',hidden:[],order:mode==='scrum'?['velocity','plan','burnup','burndown','cycle','process-map','throughput','aging','cfd','wip']:['cycle','process-map','throughput','aging','cfd','wip'],views:[],metrics:[{id:'cycle',name:'Cycle Time',start,end,created:false,rule:'final',measure:'elapsed',counted:[],excluded:[],types:[],sle:0},{id:'lead',name:'Lead Time',start:[],end,created:true,rule:'final',measure:'elapsed',counted:[],excluded:[],types:[],sle:0}].filter(m=>m.id==='cycle'||end.length)};
  }
  // Prefix sums of UTC working windows make interval queries independent of issue lifetime.
  function clock(c,min,max){

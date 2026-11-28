@@ -62,8 +62,8 @@ test('empty roadmap scope drafts do not prevent backup; first connection restore
 
 test('analytics profiles survive settings backup and restore with calendar, rules and views',async()=>{
  const f=fixture(),key='jbpDashboard:'+encodeURIComponent(root)+':7:analytics';
- const profile=f.c.JbpAnalytics.template('kanban',{workStatuses:'2',doneStatuses:'3'});profile.calendar={mode:'business',zone:'Europe/Moscow',days:[1,2,3,4,5],start:'09:00',end:'18:00',holidays:['2026-11-30']};profile.views=[{name:'Daily',hidden:['lead'],order:['aging','cycle']}];
- f.state[key]=profile;const archive=f.c.JbpRestore.exportSettings(f.state);assert.equal(archive.data[key].calendar.zone,'Europe/Moscow');assert.equal(archive.data[key].views[0].name,'Daily');
+ const profile=f.c.JbpAnalytics.template('kanban',{workStatuses:'2',doneStatuses:'3'});profile.calendar={mode:'business',zone:'Europe/Moscow',days:[1,2,3,4,5],start:'09:00',end:'18:00',holidays:['2026-11-30']};profile.statusRoles={'2':'active','4':'wait'};profile.views=[{name:'Daily',hidden:['lead'],order:['aging','cycle']}];
+ f.state[key]=profile;const archive=f.c.JbpRestore.exportSettings(f.state);assert.equal(archive.data[key].calendar.zone,'Europe/Moscow');assert.equal(archive.data[key].views[0].name,'Daily');assert.equal(archive.data[key].statusRoles['4'],'wait');
  const parsed=f.c.JbpRestore.parse(archive);assert.ok(parsed.rows.some(r=>r.key===key));
  assert.throws(()=>f.c.JbpRestore.parse({...archive,data:{[key]:{...profile,metrics:[{...profile.metrics[0],end:[]}]}}}));
 });
